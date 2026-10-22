@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-invoice-automation-platform = "invoice_automation_platform:main"
+invoice-automation-platform = "invoice_automation_platform.runner:main"
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]
