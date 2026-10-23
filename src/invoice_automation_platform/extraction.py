@@ -1,10 +1,13 @@
+import json
 import os
 from pathlib import Path
+from typing import Any
 
 import pymupdf
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from .normalization import normalize_invoice_payload
 from .schemas import Invoice
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -12,17 +15,34 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SYSTEM_PROMPT = """
 You extract structured data from supplier invoices.
 
-Use only information present in the document.
-Never invent missing values.
-Return null for missing dates and subtotal or tax values.
-Represent dates as YYYY-MM-DD.
-Represent monetary values as decimal numbers, without currency symbols.
-Use the currency's ISO 4217 code, such as USD or GBP.
-Use document_type "invoice" or "credit_note".
-Extract each line item's description and final line amount.
-Do not include shipping or tax as a line item unless explicitly
-presented as an ordinary item.
-Return a JSON object matching the requested fields.
+Return exactly one JSON object with exactly these keys, and no others:
+{
+  "vendor_name": "string",
+  "invoice_number": "string",
+  "invoice_date": "YYYY-MM-DD or null",
+  "due_date": "YYYY-MM-DD or null",
+  "currency": "ISO 4217 code or null",
+  "subtotal": number or null,
+  "tax": number or null,
+  "total": number,
+  "document_type": "invoice" or "credit_note",
+  "lines": [{"description": "string", "amount": number}]
+}
+
+Rules:
+- Use only information present in the document. Never invent missing values.
+- vendor_name is the supplier issuing the invoice, not the customer or bill-to party.
+- Use null when due_date, subtotal, tax, or currency is absent.
+- Represent dates as YYYY-MM-DD.
+- Represent monetary values as decimal numbers, without currency symbols.
+- Use the currency's ISO 4217 code, such as USD or GBP. Infer it from the
+  document symbols or codes when clear.
+- Use document_type "invoice" or "credit_note".
+- Extract each line item's description and final line amount only. Do not add
+  quantity or unit price keys.
+- Do not include shipping or tax as a line item unless explicitly presented as
+  an ordinary item.
+- Do not add PO numbers, addresses, or any other fields.
 """.strip()
 
 load_dotenv(PROJECT_ROOT / ".env")
@@ -44,6 +64,18 @@ def create_client() -> OpenAI:
     )
 
 
+def parse_invoice(content: str) -> Invoice:
+    try:
+        payload: Any = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ValueError("The model returned invalid JSON") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError("The model returned a JSON value that is not an object")
+
+    return Invoice.model_validate(normalize_invoice_payload(payload))
+
+
 def extract_invoice(client: OpenAI, model: str, text: str) -> Invoice:
     response = client.chat.completions.create(
         model=model,
@@ -63,4 +95,4 @@ def extract_invoice(client: OpenAI, model: str, text: str) -> Invoice:
     if not content:
         raise ValueError("The model returned an empty response")
 
-    return Invoice.model_validate_json(content)
+    return parse_invoice(content)
