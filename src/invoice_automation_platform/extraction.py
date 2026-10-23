@@ -53,6 +53,11 @@ def extract_pdf_text(pdf_path: Path) -> str:
         return "\n".join(page.get_text() for page in document)
 
 
+def extract_pdf_text_from_bytes(data: bytes) -> str:
+    with pymupdf.open(stream=data, filetype="pdf") as document:
+        return "\n".join(page.get_text() for page in document)
+
+
 def configured_model() -> str:
     return os.environ["OPENROUTER_MODEL"]
 
