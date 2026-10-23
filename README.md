@@ -26,6 +26,34 @@ python main.py
 
 The result is written to `results/clean-us-clean-simple.json`.
 
+## Run the API
+
+```bash
+uv run uvicorn invoice_automation_platform.api:app --reload
+```
+
+Or use the installed entry point:
+
+```bash
+uv run invoice-api
+```
+
+Interactive API docs are available at `http://127.0.0.1:8000/docs`.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Health check |
+| POST | `/v1/invoices/extract` | Upload a PDF and extract an invoice |
+
+Upload a PDF from PowerShell:
+
+```powershell
+curl.exe -F "file=@invoice.pdf;type=application/pdf" http://127.0.0.1:8000/v1/invoices/extract
+```
+
+The API accepts PDFs up to 10 MB and requires a text layer. Scanned PDFs
+currently return `422` until image support is added.
+
 ## Run a benchmark batch
 
 The batch runner selects PDF documents from the benchmark manifest and writes
