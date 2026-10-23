@@ -1,6 +1,8 @@
 import argparse
 import json
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from pathlib import Path
 from typing import Any, Iterable, Sequence
@@ -41,6 +43,53 @@ def select_documents(
     return selected[:limit] if limit is not None else selected
 
 
+def _extract_one(
+    document: dict[str, Any],
+    corpus_dir: Path,
+    client: Any,
+    model: str,
+    retries: int,
+) -> tuple[str, dict[str, Any] | None, str | None]:
+    last_error: Exception | None = None
+    for attempt in range(retries + 1):
+        try:
+            text = extract_pdf_text(corpus_dir / document["file"])
+            invoice = extract_invoice(client, model, text)
+            return document["doc_id"], invoice_to_prediction(invoice), None
+        except Exception as exc:
+            last_error = exc
+            if attempt < retries:
+                time.sleep(2**attempt)
+    return document["doc_id"], None, str(last_error)
+
+
+def _write_payload(
+    output_path: Path,
+    system: str,
+    model: str,
+    predictions: dict[str, Any],
+    documents_count: int,
+    workers: int,
+    failures: list[dict[str, str]],
+) -> None:
+    payload = {
+        "system": system,
+        "run_date": date.today().isoformat(),
+        "notes": (
+            f"OpenRouter model {model}; extracted {len(predictions)} of "
+            f"{documents_count} selected PDF documents with {workers} workers; "
+            f"{len(failures)} failed."
+        ),
+        "documents": dict(sorted(predictions.items())),
+        "failures": sorted(failures, key=lambda item: item["doc_id"]),
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
 def run_batch(
     *,
     corpus_dir: Path,
@@ -49,6 +98,10 @@ def run_batch(
     category: str | None = None,
     doc_id: str | None = None,
     limit: int | None = None,
+    workers: int = 1,
+    retries: int = 2,
+    resume: bool = False,
+    timeout: float = 90.0,
 ) -> tuple[Path, list[dict[str, str]]]:
     documents = select_documents(
         load_manifest(corpus_dir),
@@ -60,39 +113,74 @@ def run_batch(
         raise ValueError("No matching PDF documents found")
 
     model = configured_model()
-    client = create_client()
+    client = create_client(timeout=timeout)
     predictions: dict[str, Any] = {}
     failures: list[dict[str, str]] = []
 
-    for index, document in enumerate(documents, start=1):
-        current = f"[{index}/{len(documents)}] {document['doc_id']}"
-        try:
-            text = extract_pdf_text(corpus_dir / document["file"])
-            invoice = extract_invoice(client, model, text)
-        except Exception as exc:
-            failures.append({"doc_id": document["doc_id"], "error": str(exc)})
-            print(f"{current}: failed ({exc})", file=sys.stderr)
-            continue
+    if resume and output_path.exists():
+        raw = json.loads(output_path.read_text(encoding="utf-8"))
+        selected_ids = {document["doc_id"] for document in documents}
+        predictions = {
+            doc_id: prediction
+            for doc_id, prediction in (raw.get("documents") or {}).items()
+            if doc_id in selected_ids
+        }
+        failures = [
+            failure
+            for failure in (raw.get("failures") or [])
+            if failure["doc_id"] in selected_ids
+        ]
 
-        predictions[document["doc_id"]] = invoice_to_prediction(invoice)
-        print(f"{current}: ok")
+    pending = [
+        document for document in documents if document["doc_id"] not in predictions
+    ]
+    if not pending:
+        _write_payload(
+            output_path,
+            system,
+            model,
+            predictions,
+            len(documents),
+            workers,
+            failures,
+        )
+        return output_path, failures
 
-    payload = {
-        "system": system,
-        "run_date": date.today().isoformat(),
-        "notes": (
-            f"OpenRouter model {model}; extracted {len(predictions)} of "
-            f"{len(documents)} selected PDF documents."
-        ),
-        "documents": predictions,
-    }
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [
+            executor.submit(_extract_one, document, corpus_dir, client, model, retries)
+            for document in pending
+        ]
+        for index, future in enumerate(as_completed(futures), start=1):
+            doc_id, prediction, error = future.result()
+            current = f"[{index}/{len(pending)}] {doc_id}"
+            failures[:] = [item for item in failures if item["doc_id"] != doc_id]
+            if error is not None:
+                failures.append({"doc_id": doc_id, "error": error})
+                print(f"{current}: failed ({error})", file=sys.stderr)
+            else:
+                predictions[doc_id] = prediction
+                print(f"{current}: ok")
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False),
-        encoding="utf-8",
+            _write_payload(
+                output_path,
+                system,
+                model,
+                predictions,
+                len(documents),
+                workers,
+                failures,
+            )
+
+    _write_payload(
+        output_path,
+        system,
+        model,
+        predictions,
+        len(documents),
+        workers,
+        failures,
     )
-
     return output_path, failures
 
 
@@ -106,7 +194,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--category")
     parser.add_argument("--doc-id")
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--retries", type=int, default=2)
+    parser.add_argument("--timeout", type=float, default=90.0)
+    parser.add_argument("--resume", action="store_true")
     args = parser.parse_args(argv)
+
+    if args.workers < 1:
+        parser.error("--workers must be at least 1")
+    if args.retries < 0:
+        parser.error("--retries must be zero or more")
+    if args.timeout <= 0:
+        parser.error("--timeout must be greater than zero")
 
     output_path, failures = run_batch(
         corpus_dir=args.corpus,
@@ -115,6 +214,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         category=args.category,
         doc_id=args.doc_id,
         limit=args.limit,
+        workers=args.workers,
+        retries=args.retries,
+        resume=args.resume,
+        timeout=args.timeout,
     )
 
     print(f"Saved predictions to: {output_path}")
