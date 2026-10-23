@@ -57,10 +57,12 @@ def configured_model() -> str:
     return os.environ["OPENROUTER_MODEL"]
 
 
-def create_client() -> OpenAI:
+def create_client(timeout: float = 90.0) -> OpenAI:
     return OpenAI(
         api_key=os.environ["OPENROUTER_API_KEY"],
         base_url="https://openrouter.ai/api/v1",
+        timeout=timeout,
+        max_retries=0,
     )
 
 

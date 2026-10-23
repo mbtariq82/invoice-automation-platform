@@ -45,6 +45,15 @@ python -m invoice_automation_platform.runner --category clean --out results/clea
 
 Image-only documents (photos and scans) are skipped for now.
 
+For long runs, process documents concurrently and resume after an interruption:
+
+```bash
+python -m invoice_automation_platform.runner --workers 3 --retries 2 --timeout 90 --resume
+```
+
+Completed documents are written to the predictions file as they finish, so
+`--resume` skips them on the next run.
+
 ## Score the predictions
 
 From the benchmark directory:
@@ -58,6 +67,11 @@ python -m scorer.evaluate ../results/predictions.json \
 ```
 
 Use `--allow-missing` for partial runs such as `--limit` batches.
+
+## Results
+
+The first PDF-only baseline (113 of 181 benchmark documents) is in
+[benchmark-results/2026-10-23-baseline-pdf/README.md](benchmark-results/2026-10-23-baseline-pdf/README.md).
 
 ## Tests
 

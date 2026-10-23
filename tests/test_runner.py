@@ -1,4 +1,9 @@
+from decimal import Decimal
+from pathlib import Path
+
+from invoice_automation_platform import runner
 from invoice_automation_platform.runner import select_documents
+from invoice_automation_platform.schemas import Invoice
 
 DOCUMENTS = [
     {"doc_id": "clean-a", "category": "clean", "render": "pdf", "file": "a.pdf"},
@@ -23,3 +28,36 @@ def test_select_documents_filters_category_and_limit() -> None:
 def test_select_documents_filters_by_doc_id() -> None:
     selected = select_documents(DOCUMENTS, doc_id="clean-b")
     assert [document["doc_id"] for document in selected] == ["clean-b"]
+
+
+def test_extract_one_retries_transient_failures(monkeypatch) -> None:
+    calls = []
+
+    def fake_extract_invoice(client, model, text):
+        calls.append(text)
+        if len(calls) < 3:
+            raise ValueError("empty response")
+        return Invoice(
+            vendor_name="Acme Industrial Supply Co",
+            invoice_number="ACM-100145",
+            total=Decimal("372.49"),
+            document_type="invoice",
+        )
+
+    monkeypatch.setattr(runner, "extract_pdf_text", lambda path: "text")
+    monkeypatch.setattr(runner, "extract_invoice", fake_extract_invoice)
+    monkeypatch.setattr(runner.time, "sleep", lambda seconds: None)
+
+    doc_id, prediction, error = runner._extract_one(
+        {"doc_id": "clean-a", "file": "a.pdf"},
+        Path("."),
+        object(),
+        "model",
+        retries=2,
+    )
+
+    assert doc_id == "clean-a"
+    assert error is None
+    assert len(calls) == 3
+    assert prediction is not None
+    assert prediction["vendor_name"] == "Acme Industrial Supply Co"
