@@ -1,0 +1,4 @@
+# Copy to backend.tf after creating the state bucket, then migrate local state.
+terraform {
+  backend "gcs" {}
+}

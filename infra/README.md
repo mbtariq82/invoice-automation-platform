@@ -1,0 +1,191 @@
+# GCP development infrastructure
+
+Terraform defines a development environment in an existing GCP project:
+
+- A private Cloud Run service for the FastAPI API and a separate Alembic migration job.
+- Cloud SQL for PostgreSQL 17, using the Enterprise edition and a small single-zone instance.
+- An Artifact Registry Docker repository for application images.
+- Secret Manager versions for the database URL and OpenRouter API key.
+- A dedicated runtime service account with access to its database, secrets and invoice bucket.
+- A private Cloud Storage bucket for original invoice PDFs, plus a separate versioned bucket for Terraform state.
+
+Cloud Run sends request and application output to Cloud Logging automatically.
+The default region is `europe-west2` (London). This is a development setup;
+Cloud SQL incurs charges while running, including before the API is deployed.
+Configure billing alerts for the project.
+
+**PDF storage integration is a follow-up application change.** This configuration
+creates the bucket, grants read/create access and supplies `INVOICE_BUCKET` to the
+API. The current API does not yet upload PDF bytes or save object references.
+
+## Prerequisites
+
+Use PowerShell 7, Terraform 1.11 or later, the Google Cloud CLI, and a running
+Linux Docker engine. Choose an existing project with billing enabled and an
+account permitted to create the resources above and their IAM bindings.
+The following commands are deployment instructions; they create billable
+resources when you run `terraform apply`.
+
+Run commands from the repository root. Keep the same PowerShell session for the
+steps below, and replace the example project ID:
+
+```powershell
+$projectId = "your-gcp-project-id"
+$region = "europe-west2"
+$env:TF_VAR_project_id = $projectId
+$env:TF_VAR_region = $region
+
+gcloud auth login
+gcloud auth application-default login
+gcloud config set project $projectId
+gcloud services enable serviceusage.googleapis.com cloudresourcemanager.googleapis.com storage.googleapis.com --project=$projectId
+gcloud auth application-default set-quota-project $projectId
+```
+
+Terraform uses Application Default Credentials; Docker and the later `gcloud`
+commands use your Google Cloud CLI login. Each command must succeed before
+continuing to the next step.
+
+## Validate without a cloud account
+
+These checks download the pinned provider and use mocked plans. They do not
+connect to GCP or create resources:
+
+```powershell
+terraform fmt -check -recursive infra
+terraform -chdir=infra/bootstrap init -backend=false
+terraform -chdir=infra/bootstrap validate
+terraform -chdir=infra/bootstrap test
+terraform -chdir=infra/terraform init -backend=false
+terraform -chdir=infra/terraform validate
+terraform -chdir=infra/terraform test
+```
+
+## 1. Create and configure remote state
+
+The GCS backend needs an existing bucket. Bootstrap it once using local state:
+
+```powershell
+terraform -chdir=infra/bootstrap init
+terraform -chdir=infra/bootstrap plan
+terraform -chdir=infra/bootstrap apply
+$stateBucket = terraform -chdir=infra/bootstrap output -raw state_bucket_name
+```
+
+Preserve a copy of the initial state, then enable the bootstrap module's remote
+backend and accept Terraform's state-migration prompt:
+
+```powershell
+Copy-Item infra/bootstrap/terraform.tfstate infra/bootstrap/terraform.tfstate.pre-migration
+Copy-Item infra/bootstrap/backend.tf.example infra/bootstrap/backend.tf
+terraform -chdir=infra/bootstrap init -migrate-state -backend-config="bucket=$stateBucket" -backend-config="prefix=bootstrap"
+
+terraform -chdir=infra/terraform init -backend-config="bucket=$stateBucket" -backend-config="prefix=dev"
+```
+
+For subsequent sessions, retrieve the same bucket name and initialize each
+module with its existing bucket and prefix. Do not create a new empty state for
+resources already managed by an existing state. The state bucket uses object
+versioning, private access and backend locking. [GCS backend documentation](https://docs.hashicorp.com/terraform/language/backend/gcs)
+
+## 2. Create supporting resources
+
+Supply credentials through masked prompts in your current shell. They are
+ephemeral Terraform inputs passed only to write-only provider arguments, so
+the plaintext values are omitted from Terraform state and saved plans.
+Do not put them in a `.tfvars` file or commit them.
+
+```powershell
+$env:TF_VAR_database_password = Read-Host -MaskInput "Database password (at least 16 characters; keep it for future runs)"
+$env:TF_VAR_openrouter_api_key = Read-Host -MaskInput "OpenRouter API key"
+
+terraform -chdir=infra/terraform plan
+terraform -chdir=infra/terraform apply
+```
+
+`deploy_application` defaults to `false`: the database, secrets, storage and
+image repository are created first. An existing application image is therefore
+not required for the initial apply. Optional non-secret configuration is shown
+in `terraform.tfvars.example`; environment variables above are sufficient for
+the defaults.
+
+The database uses a public IP with no authorized networks. Cloud Run connects
+through the authenticated, encrypted Cloud SQL integration and its `/cloudsql`
+socket; direct database connections are not opened to the internet. The
+application remains IAM-authenticated. The PDF bucket enforces public access
+prevention and uniform bucket-level IAM access.
+
+## 3. Build and push an application image
+
+Build the image locally; no CI/CD pipeline or Cloud Build setup is required:
+
+```powershell
+$imageRepository = terraform -chdir=infra/terraform output -raw image_repository
+$revision = git rev-parse --short HEAD
+$imageName = "$imageRepository/api"
+$imageTag = "${imageName}:$revision"
+
+gcloud auth configure-docker "${region}-docker.pkg.dev"
+docker build --platform linux/amd64 --tag $imageTag .
+docker push $imageTag
+$digest = gcloud artifacts docker images describe $imageTag --project=$projectId --format="value(image_summary.digest)"
+$env:TF_VAR_container_image = "${imageName}@$digest"
+```
+
+The Docker build includes production dependencies and migration files. Build
+ignore files exclude credentials, local environments, benchmark documents and
+Terraform state. Deployment uses the image digest so the selected build does
+not change when a tag moves.
+
+## 4. Deploy, migrate and verify
+
+```powershell
+$env:TF_VAR_openrouter_model = Read-Host "OpenRouter model identifier"
+$invokerEmail = Read-Host "Google account email allowed to call the API"
+$env:TF_VAR_invoker_members = ConvertTo-Json -InputObject @("user:$invokerEmail") -Compress
+$env:TF_VAR_deploy_application = "true"
+terraform -chdir=infra/terraform plan
+terraform -chdir=infra/terraform apply
+
+$migrationJob = terraform -chdir=infra/terraform output -raw migration_job_name
+gcloud run jobs execute $migrationJob --project=$projectId --region=$region --wait
+```
+
+The job runs `alembic upgrade head` with the same image and database connection
+as the API. **Wait for a successful migration before using invoice endpoints.**
+Terraform creates the job but does not execute it. Run it again after deploying
+an image containing new migrations. [Executing Cloud Run jobs](https://docs.cloud.google.com/run/docs/execute/jobs)
+
+Test the private service using an account with Cloud Run Invoker permission:
+
+```powershell
+$serviceUrl = terraform -chdir=infra/terraform output -raw service_url
+$token = gcloud auth print-identity-token
+$headers = @{ Authorization = "Bearer $token" }
+Invoke-RestMethod -Uri "$serviceUrl/health" -Headers $headers
+```
+
+You can add further specific users or service accounts through `invoker_members`,
+for example `["user:you@example.com"]` in your non-secret configuration. The
+configuration does not grant public access. After the health check, upload a
+synthetic invoice, retrieve the stored result, and repeat the upload to verify
+caching. Inspect application logs in the Cloud Run console.
+
+## Updates and cleanup
+
+- Keep credential values available in the shell for future plans and applies.
+  Changing a password also requires incrementing `database_credentials_version`;
+  changing the model key requires incrementing `openrouter_key_version`.
+  Deployments reference the resulting Secret Manager version numbers. See
+  [write-only arguments](https://docs.hashicorp.com/terraform/language/manage-sensitive-data/write-only).
+- For an application update, push another image, set `container_image` to its
+  digest, review the Terraform plan, apply it and run migrations before using
+  the new invoice endpoints.
+- When finished with this shell, clear the credential environment variables:
+  `$env:TF_VAR_database_password = $null` and
+  `$env:TF_VAR_openrouter_api_key = $null`.
+- Deletion protection is enabled by default. For deliberate development
+  teardown, set `deletion_protection=false` and apply that change before
+  destroying the application stack. Non-empty PDF and state buckets are not
+  force-deleted. Preserve the state bucket until you have finished managing
+  the resources recorded in it.

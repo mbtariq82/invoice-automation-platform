@@ -1,0 +1,22 @@
+# Only send files required to build and run the API image.
+*
+!Dockerfile
+!.dockerignore
+!pyproject.toml
+!uv.lock
+!README.md
+!src/
+!src/**
+!alembic.ini
+!migrations/
+!migrations/**
+
+# Exclude generated files and local configuration within allowed directories.
+**/__pycache__/
+**/*.py[cod]
+**/.env
+**/.env.*
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan

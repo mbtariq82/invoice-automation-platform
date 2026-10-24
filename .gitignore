@@ -11,3 +11,14 @@ wheels/
 .env
 
 results
+
+# Terraform working files, state, plans and environment-specific settings
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+backend.hcl
+crash.log
+infra/bootstrap/backend.tf
