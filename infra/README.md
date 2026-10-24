@@ -115,6 +115,16 @@ socket; direct database connections are not opened to the internet. The
 application remains IAM-authenticated. The PDF bucket enforces public access
 prevention and uniform bucket-level IAM access.
 
+Terraform passes `DATABASE_URL_SECRET_VERSION` and
+`OPENROUTER_API_KEY_SECRET_VERSION` as numbered resource references. The Python
+application reads their values directly through the Secret Manager client,
+using its runtime identity, verifies payload checksums and caches successful
+reads in memory. The migration job receives only the database reference.
+Secrets are loaded on first use, so `/health` checks startup rather than secret
+access or database connectivity; successful migrations and an invoice request
+verify those dependencies. Local `.env` credentials remain available when no
+secret-version references are configured.
+
 ## 3. Build and push an application image
 
 Build the image locally; no CI/CD pipeline or Cloud Build setup is required:

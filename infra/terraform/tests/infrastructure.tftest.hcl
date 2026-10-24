@@ -8,6 +8,22 @@ mock_provider "google" {
   }
 }
 
+override_resource {
+  target          = google_secret_manager_secret.database_url
+  override_during = plan
+  values = {
+    id = "projects/invoice-test-project/secrets/invoice-dev-database-url"
+  }
+}
+
+override_resource {
+  target          = google_secret_manager_secret.openrouter_api_key
+  override_during = plan
+  values = {
+    id = "projects/invoice-test-project/secrets/invoice-dev-openrouter-api-key"
+  }
+}
+
 variables {
   project_id         = "invoice-test-project"
   database_password  = "offline-test-password"
@@ -86,10 +102,13 @@ run "application_uses_the_database_bucket_and_pinned_secrets" {
   }
 
   assert {
-    condition = alltrue([
+    condition = length([
+      for env in google_cloud_run_v2_service.api[0].template[0].containers[0].env : env.name
+      if contains(["DATABASE_URL_SECRET_VERSION", "OPENROUTER_API_KEY_SECRET_VERSION"], env.name)
+      ]) == 2 && alltrue([
       for env in google_cloud_run_v2_service.api[0].template[0].containers[0].env :
-      env.value_source[0].secret_key_ref[0].version == "7"
-      if contains(["DATABASE_URL", "OPENROUTER_API_KEY"], env.name)
+      endswith(env.value, "/versions/7") && length(env.value_source) == 0
+      if contains(["DATABASE_URL_SECRET_VERSION", "OPENROUTER_API_KEY_SECRET_VERSION"], env.name)
     ])
     error_message = "Use actual Secret Manager versions, not latest or the credential update counters."
   }
@@ -99,7 +118,7 @@ run "application_uses_the_database_bucket_and_pinned_secrets" {
       google_cloud_run_v2_job.migrate[0].template[0].task_count == 1 &&
       google_cloud_run_v2_job.migrate[0].template[0].template[0].max_retries == 0 &&
       one(google_cloud_run_v2_job.migrate[0].template[0].template[0].containers[0].command) == "alembic" &&
-      toset([for env in google_cloud_run_v2_job.migrate[0].template[0].template[0].containers[0].env : env.name]) == toset(["DATABASE_URL"])
+      toset([for env in google_cloud_run_v2_job.migrate[0].template[0].template[0].containers[0].env : env.name]) == toset(["DATABASE_URL_SECRET_VERSION"])
     )
     error_message = "Migrations must run once with database configuration only."
   }

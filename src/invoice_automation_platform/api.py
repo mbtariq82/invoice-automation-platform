@@ -28,6 +28,7 @@ from .extraction import (
 )
 from .models import InvoiceRecord
 from .schemas import Invoice
+from .secrets import SecretConfigurationError
 from .validation import TotalsCheck, check_invoice_totals
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,11 @@ class ExtractInvoiceResponse(InvoiceRecordResponse):
 def get_client() -> OpenAI:
     try:
         return create_client()
+    except SecretConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OpenRouter credentials could not be loaded",
+        ) from exc
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
