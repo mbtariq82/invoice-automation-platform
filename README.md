@@ -157,3 +157,11 @@ The first PDF-only baseline (113 of 181 benchmark documents) is in
 ```bash
 python -m pytest
 ```
+
+## GCP infrastructure
+
+[Terraform setup and deployment instructions](infra/README.md) define a
+development environment with Cloud Run, Cloud SQL for PostgreSQL, Secret
+Manager, Artifact Registry, and a private Cloud Storage bucket for PDF invoices.
+The setup uses a separate bucket for Terraform state and supports provisioning
+the infrastructure before deploying an application image.

@@ -1,0 +1,23 @@
+# Upload only the source files required by the API Docker build.
+*
+!.gcloudignore
+!Dockerfile
+!.dockerignore
+!pyproject.toml
+!uv.lock
+!README.md
+!src/
+!src/**
+!alembic.ini
+!migrations/
+!migrations/**
+
+# Keep generated files, credentials, and Terraform state out of build uploads.
+**/__pycache__/
+**/*.py[cod]
+**/.env
+**/.env.*
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
