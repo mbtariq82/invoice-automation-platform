@@ -1,7 +1,10 @@
 terraform {
   required_version = ">= 1.11, < 2.0"
 
-  backend "gcs" {}
+  backend "gcs" {
+    bucket = "project-9ad4cdc4-734d-497d-81a-invoice-tfstate"
+    prefix = "invoice-platform"
+  }
 
   required_providers {
     google = {
