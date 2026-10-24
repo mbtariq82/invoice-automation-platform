@@ -45,6 +45,10 @@ OPENROUTER_MODEL=your-openrouter-model-id
 Terraform configures these references for the Cloud Run API and supplies only
 the database reference to the migration job. Google authentication uses the
 attached runtime service account, which has access to the two specific secrets.
+Terraform also reads provisioning credentials from Secret Manager: bootstrap
+creates empty source secrets, you populate them once in the Google Cloud
+console, and subsequent plans use numbered versions without password prompts.
+See the [infrastructure setup guide](infra/README.md) for those steps.
 For local cloud access, run `gcloud auth application-default login` using an
 account with Secret Manager Secret Accessor permission on those secrets.
 

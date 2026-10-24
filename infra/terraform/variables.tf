@@ -25,32 +25,8 @@ variable "name_prefix" {
   }
 }
 
-variable "database_password" {
-  description = "Database password supplied through TF_VAR_database_password; never stored in state."
-  type        = string
-  sensitive   = true
-  ephemeral   = true
-
-  validation {
-    condition     = length(var.database_password) >= 16
-    error_message = "Use a database password with at least 16 characters."
-  }
-}
-
-variable "openrouter_api_key" {
-  description = "Model API key supplied through TF_VAR_openrouter_api_key; never stored in state."
-  type        = string
-  sensitive   = true
-  ephemeral   = true
-
-  validation {
-    condition     = length(trimspace(var.openrouter_api_key)) > 0
-    error_message = "Supply a non-empty OpenRouter API key."
-  }
-}
-
 variable "database_credentials_version" {
-  description = "Increment when changing the database password to update both SQL and Secret Manager."
+  description = "Numbered version of the bootstrap database-password secret; updates SQL and the database URL together."
   type        = number
   default     = 1
 
@@ -61,7 +37,7 @@ variable "database_credentials_version" {
 }
 
 variable "openrouter_key_version" {
-  description = "Increment when rotating the OpenRouter key."
+  description = "Numbered version of the bootstrap OpenRouter source-key secret."
   type        = number
   default     = 1
 

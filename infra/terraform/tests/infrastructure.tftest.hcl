@@ -24,10 +24,16 @@ override_resource {
   }
 }
 
+override_module {
+  target = module.credential_inputs
+  outputs = {
+    database_password  = "offline-test-password"
+    openrouter_api_key = "offline-test-key"
+  }
+}
+
 variables {
-  project_id         = "invoice-test-project"
-  database_password  = "offline-test-password"
-  openrouter_api_key = "offline-test-key"
+  project_id = "invoice-test-project"
 }
 
 run "foundation_without_an_application_image" {
@@ -157,4 +163,14 @@ run "reject_public_api_access" {
   }
 
   expect_failures = [var.invoker_members]
+}
+
+run "reject_invalid_source_secret_version" {
+  command = plan
+
+  variables {
+    database_credentials_version = 0
+  }
+
+  expect_failures = [var.database_credentials_version]
 }

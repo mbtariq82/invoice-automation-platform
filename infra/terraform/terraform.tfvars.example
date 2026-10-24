@@ -10,4 +10,6 @@ deploy_application = false
 # deploy_application = true
 # invoker_members    = ["user:you@example.com"]
 
-# Supply credentials through ephemeral TF_VAR_ environment variables, not here.
+# Secret Manager version numbers are metadata, not secret values.
+database_credentials_version = 1
+openrouter_key_version        = 1
