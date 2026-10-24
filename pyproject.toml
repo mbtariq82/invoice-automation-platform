@@ -8,12 +8,15 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.20.1",
     "fastapi>=0.161.1",
     "openai>=3.36.1",
+    "psycopg[binary]>=3.3.6",
     "pydantic>=2.14.1",
     "pymupdf>=2.0",
     "python-dotenv>=1.2.4",
     "python-multipart>=0.0.32",
+    "sqlalchemy>=2.1.6",
     "uvicorn[standard]>=0.54.0",
 ]
 

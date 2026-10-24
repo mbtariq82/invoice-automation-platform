@@ -16,7 +16,19 @@ Create a `.env` file with:
 ```text
 OPENROUTER_API_KEY=...
 OPENROUTER_MODEL=...
+DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/invoice_automation
+TEST_DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/invoice_automation_test
 ```
+
+Create the two Postgres databases (names can differ, just match the URLs
+above), then apply migrations:
+
+```bash
+uv run alembic upgrade head
+```
+
+`TEST_DATABASE_URL` is a separate database used only by the test suite; its
+tables are created and dropped automatically per test session.
 
 ## Extract one invoice
 
@@ -44,6 +56,8 @@ Interactive API docs are available at `http://127.0.0.1:8000/docs`.
 |---|---|---|
 | GET | `/health` | Health check |
 | POST | `/v1/invoices/extract` | Upload a PDF and extract an invoice |
+| GET | `/v1/invoices` | List previously extracted invoices (`limit`, `offset`) |
+| GET | `/v1/invoices/{id}` | Fetch one extracted invoice |
 
 Upload a PDF from PowerShell:
 
@@ -53,6 +67,18 @@ curl.exe -F "file=@invoice.pdf;type=application/pdf" http://127.0.0.1:8000/v1/in
 
 The API accepts PDFs up to 10 MB and requires a text layer. Scanned PDFs
 currently return `422` until image support is added.
+
+Every extraction is persisted in Postgres, keyed by the SHA-256 of the
+uploaded bytes. Uploading the same PDF again skips the model call and returns
+the stored result with `"cached": true`.
+
+After changing `src/invoice_automation_platform/models.py`, generate a new
+migration and apply it:
+
+```bash
+uv run alembic revision --autogenerate -m "describe the change"
+uv run alembic upgrade head
+```
 
 ## Run a benchmark batch
 
