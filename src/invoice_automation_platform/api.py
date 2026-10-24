@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime
-from decimal import Decimal
 from functools import lru_cache
 from typing import Annotated, Any
 
@@ -28,7 +27,8 @@ from .extraction import (
     extract_pdf_text_from_bytes,
 )
 from .models import InvoiceRecord
-from .schemas import Invoice, InvoiceLine
+from .schemas import Invoice
+from .validation import TotalsCheck, check_invoice_totals
 
 logger = logging.getLogger(__name__)
 
@@ -39,23 +39,13 @@ router = APIRouter()
 
 
 def _record_fields(record: InvoiceRecord) -> dict[str, Any]:
+    invoice = repository.to_invoice(record)
     return {
         "id": record.id,
         "source_filename": record.source_filename,
         "created_at": record.created_at,
-        "vendor_name": record.vendor_name,
-        "invoice_number": record.invoice_number,
-        "invoice_date": record.invoice_date,
-        "due_date": record.due_date,
-        "currency": record.currency,
-        "subtotal": record.subtotal,
-        "tax": record.tax,
-        "total": record.total,
-        "document_type": record.document_type,
-        "lines": [
-            InvoiceLine(description=item["description"], amount=Decimal(item["amount"]))
-            for item in record.lines
-        ],
+        **invoice.model_dump(),
+        "totals_check": check_invoice_totals(invoice),
     }
 
 
@@ -65,6 +55,7 @@ class InvoiceRecordResponse(Invoice):
     id: int
     source_filename: str | None
     created_at: datetime
+    totals_check: TotalsCheck
 
     @classmethod
     def from_record(cls, record: InvoiceRecord) -> "InvoiceRecordResponse":

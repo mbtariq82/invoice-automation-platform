@@ -121,6 +121,51 @@ def test_list_and_get_invoice(client: TestClient, monkeypatch) -> None:
     assert missing.status_code == 404
 
 
+@pytest.mark.parametrize(
+    "tax,total,expected_status",
+    [
+        (Decimal("10.00"), Decimal("110.00"), "matched"),
+        (Decimal("10.00"), Decimal("125.00"), "mismatch"),
+        (None, Decimal("110.00"), "not_checked"),
+    ],
+)
+def test_totals_check_is_consistent_across_api_responses(
+    client: TestClient, monkeypatch, tax, total, expected_status
+) -> None:
+    invoice = sample_invoice().model_copy(update={"tax": tax, "total": total})
+    calls = []
+
+    def fake_extract_invoice(openai_client, model, text):
+        calls.append(text)
+        return invoice
+
+    monkeypatch.setattr(api, "extract_invoice", fake_extract_invoice)
+    pdf_bytes = make_pdf("Acme invoice")
+    files = {"file": ("invoice.pdf", pdf_bytes, "application/pdf")}
+
+    created = client.post("/v1/invoices/extract", files=files)
+    assert created.status_code == 200
+    body = created.json()
+    check = body["totals_check"]
+    assert check["status"] == expected_status
+    assert Decimal(body["total"]) == total
+
+    cached = client.post("/v1/invoices/extract", files=files)
+    assert cached.status_code == 200
+    assert cached.json()["cached"] is True
+    assert cached.json()["totals_check"] == check
+    assert len(calls) == 1
+
+    fetched = client.get(f"/v1/invoices/{body['id']}")
+    assert fetched.status_code == 200
+    assert fetched.json()["totals_check"] == check
+
+    listed = client.get("/v1/invoices")
+    assert listed.status_code == 200
+    stored = next(item for item in listed.json() if item["id"] == body["id"])
+    assert stored["totals_check"] == check
+
+
 def test_extract_rejects_non_pdf_content_type(client: TestClient) -> None:
     response = client.post(
         "/v1/invoices/extract",
