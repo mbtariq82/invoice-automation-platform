@@ -11,6 +11,13 @@ from invoice_automation_platform.models import Base
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 
+@pytest.fixture(autouse=True)
+def local_secret_configuration(monkeypatch):
+    # Tests must not use cloud secret references from a developer's environment.
+    monkeypatch.delenv("DATABASE_URL_SECRET_VERSION", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY_SECRET_VERSION", raising=False)
+
+
 @pytest.fixture(scope="session")
 def test_engine():
     engine = create_engine(os.environ["TEST_DATABASE_URL"], future=True)

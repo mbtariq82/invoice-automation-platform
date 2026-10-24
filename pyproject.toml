@@ -10,6 +10,8 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.1",
     "fastapi>=0.161.1",
+    "google-cloud-secret-manager>=2.31.0",
+    "google-crc32c>=1.9.0",
     "openai>=3.36.1",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.14.1",

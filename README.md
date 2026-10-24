@@ -30,6 +30,39 @@ uv run alembic upgrade head
 `TEST_DATABASE_URL` is a separate database used only by the test suite; its
 tables are created and dropped automatically per test session.
 
+## Google Cloud Secret Manager
+
+The application can load its database URL and model API key directly from
+Secret Manager. Set numbered secret-version references instead of plaintext
+credentials:
+
+```text
+DATABASE_URL_SECRET_VERSION=projects/your-project/secrets/invoice-dev-database-url/versions/1
+OPENROUTER_API_KEY_SECRET_VERSION=projects/your-project/secrets/invoice-dev-openrouter-api-key/versions/1
+OPENROUTER_MODEL=your-openrouter-model-id
+```
+
+Terraform configures these references for the Cloud Run API and supplies only
+the database reference to the migration job. Google authentication uses the
+attached runtime service account, which has access to the two specific secrets.
+For local cloud access, run `gcloud auth application-default login` using an
+account with Secret Manager Secret Accessor permission on those secrets.
+
+Each secret is fetched on first use, checked for payload integrity and cached
+in memory for the process lifetime. Use a numbered version, rather than
+`latest`; deploy a new version reference to rotate credentials. A configured
+reference takes precedence over `.env` values and failures never fall back to
+local credentials. The resolver does not log secret values or write them to files.
+
+Without the `*_SECRET_VERSION` settings, the existing `.env` configuration
+continues to work without Google credentials. Health checks do not fetch secrets.
+The test suite uses mocked Secret Manager responses and makes no cloud calls.
+
+The database URL created by Terraform uses Cloud Run's `/cloudsql` socket. For
+local development, keep `DATABASE_URL` pointing at your local Postgres database
+or a local Cloud SQL Auth Proxy, and set only the API key's secret reference
+unless you also have the required database socket available.
+
 ## Extract one invoice
 
 ```bash

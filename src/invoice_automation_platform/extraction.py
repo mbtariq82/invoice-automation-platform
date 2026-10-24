@@ -4,13 +4,11 @@ from pathlib import Path
 from typing import Any
 
 import pymupdf
-from dotenv import load_dotenv
 from openai import OpenAI
 
 from .normalization import normalize_invoice_payload
 from .schemas import Invoice
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from .secrets import get_secret
 
 SYSTEM_PROMPT = """
 You extract structured data from supplier invoices.
@@ -45,8 +43,6 @@ Rules:
 - Do not add PO numbers, addresses, or any other fields.
 """.strip()
 
-load_dotenv(PROJECT_ROOT / ".env")
-
 
 def extract_pdf_text(pdf_path: Path) -> str:
     with pymupdf.open(pdf_path) as document:
@@ -64,7 +60,7 @@ def configured_model() -> str:
 
 def create_client(timeout: float = 90.0) -> OpenAI:
     return OpenAI(
-        api_key=os.environ["OPENROUTER_API_KEY"],
+        api_key=get_secret("OPENROUTER_API_KEY"),
         base_url="https://openrouter.ai/api/v1",
         timeout=timeout,
         max_retries=0,

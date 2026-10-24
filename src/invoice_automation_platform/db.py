@@ -1,18 +1,14 @@
-import os
 from collections.abc import Generator
 from functools import lru_cache
-from pathlib import Path
 
-from dotenv import load_dotenv
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(PROJECT_ROOT / ".env")
+from .secrets import get_secret
 
 
 def database_url() -> str:
-    return os.environ["DATABASE_URL"]
+    return get_secret("DATABASE_URL")
 
 
 @lru_cache(maxsize=1)
