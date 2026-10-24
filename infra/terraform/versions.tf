@@ -18,3 +18,10 @@ provider "google" {
   project = var.project_id
   region  = var.region
 }
+
+# Separate the secret-read boundary so offline tests can override that module.
+provider "google" {
+  alias   = "secret_source"
+  project = var.project_id
+  region  = var.region
+}

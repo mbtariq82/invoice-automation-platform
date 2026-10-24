@@ -5,7 +5,7 @@ Terraform defines a development environment in an existing GCP project:
 - A private Cloud Run service for the FastAPI API and a separate Alembic migration job.
 - Cloud SQL for PostgreSQL 17, using the Enterprise edition and a small single-zone instance.
 - An Artifact Registry Docker repository for application images.
-- Secret Manager versions for the database URL and OpenRouter API key.
+- Secret Manager source credentials and application secret versions for the database URL and OpenRouter API key.
 - A dedicated runtime service account with access to its database, secrets and invoice bucket.
 - A private Cloud Storage bucket for original invoice PDFs, plus a separate versioned bucket for Terraform state.
 
@@ -63,14 +63,24 @@ terraform -chdir=infra/terraform test
 
 ## 1. Create and configure remote state
 
-The GCS backend needs an existing bucket. Bootstrap it once using local state:
+Bootstrap creates the state bucket and two empty source-secret containers.
+Grant your Terraform operator account read access to those secrets using its
+email (the account used for Application Default Credentials):
 
 ```powershell
+$operatorEmail = Read-Host "Terraform operator Google account email"
+$env:TF_VAR_credential_reader_members = ConvertTo-Json -InputObject @("user:$operatorEmail") -Compress
 terraform -chdir=infra/bootstrap init
 terraform -chdir=infra/bootstrap plan
 terraform -chdir=infra/bootstrap apply
 $stateBucket = terraform -chdir=infra/bootstrap output -raw state_bucket_name
 ```
+
+For the first setup, bootstrap uses local state because the GCS backend needs
+an existing bucket. If you already migrated bootstrap state, keep its current
+backend configuration and run plan/apply to add the source secrets; skip the
+state migration commands below. Use the same `name_prefix` for both stacks
+if overriding the default `invoice-dev`.
 
 Preserve a copy of the initial state, then enable the bootstrap module's remote
 backend and accept Terraform's state-migration prompt:
@@ -90,18 +100,46 @@ versioning, private access and backend locking. [GCS backend documentation](http
 
 ## 2. Create supporting resources
 
-Supply credentials through masked prompts in your current shell. They are
-ephemeral Terraform inputs passed only to write-only provider arguments, so
-the plaintext values are omitted from Terraform state and saved plans.
-Do not put them in a `.tfvars` file or commit them.
+Add the initial credential values once through the Google Cloud console:
+
+1. Open **Secret Manager** in your project.
+2. Open `invoice-dev-database-password`, choose **Add new version**, and enter
+   the database password (at least 16 characters).
+3. Open `invoice-dev-openrouter-source-key` and add the OpenRouter API key as
+   a new version.
+4. Note the version numbers. New secrets start at version `1`.
+
+The names change with `name_prefix`. Run
+`terraform -chdir=infra/bootstrap output credential_secret_ids` to list them.
+The operator needs permission to add these
+versions in the console, as well as Secret Accessor on the two source secrets
+for planning. Bootstrap grants the accessor role to `credential_reader_members`.
+[Adding secret versions](https://docs.cloud.google.com/secret-manager/docs/add-secret-version)
+
+Only non-sensitive version numbers are supplied to Terraform:
 
 ```powershell
-$env:TF_VAR_database_password = Read-Host -MaskInput "Database password (at least 16 characters; keep it for future runs)"
-$env:TF_VAR_openrouter_api_key = Read-Host -MaskInput "OpenRouter API key"
-
+$env:TF_VAR_database_credentials_version = "1"
+$env:TF_VAR_openrouter_key_version = "1"
+terraform -chdir=infra/terraform init
 terraform -chdir=infra/terraform plan
 terraform -chdir=infra/terraform apply
 ```
+
+Terraform reads these exact source versions using the Google provider's
+**ephemeral Secret Manager resource**. The values flow only into write-only
+database-password and application-secret arguments; plaintext is omitted from
+state and saved plans. No password or API key input variables are declared, so
+plans do not prompt for them. Do not replace the ephemeral reader with a normal
+secret-value data source, which would store the value in Terraform state.
+[Ephemeral Secret Manager reads](https://registry.terraform.io/providers/hashicorp/google/latest/docs/ephemeral-resources/secret_manager_secret_version)
+
+For an existing database, seed the source secrets with the credentials already
+in use. Existing SQL-user and application-secret resource addresses stay the
+same. If changing a credential during this upgrade, create a source version
+with a number greater than the previously configured update counter, and set
+the corresponding version variable to that number. The Secret Manager API is
+now owned by bootstrap; removing its old main-stack entry does not disable it.
 
 `deploy_application` defaults to `false`: the database, secrets, storage and
 image repository are created first. An existing application image is therefore
@@ -183,17 +221,18 @@ caching. Inspect application logs in the Cloud Run console.
 
 ## Updates and cleanup
 
-- Keep credential values available in the shell for future plans and applies.
-  Changing a password also requires incrementing `database_credentials_version`;
-  changing the model key requires incrementing `openrouter_key_version`.
-  Deployments reference the resulting Secret Manager version numbers. See
-  [write-only arguments](https://docs.hashicorp.com/terraform/language/manage-sensitive-data/write-only).
+- To rotate a credential, add a new version to its bootstrap source secret in
+  the Google Cloud console. Set `database_credentials_version` or
+  `openrouter_key_version` to that actual new version number, then review and
+  apply the plan. The database password and generated database URL update
+  together. Do this during a development maintenance window: existing API
+  instances can still have the old database credentials cached until the new
+  revision is serving. Deployments pin the resulting application secret versions.
 - For an application update, push another image, set `container_image` to its
   digest, review the Terraform plan, apply it and run migrations before using
   the new invoice endpoints.
-- When finished with this shell, clear the credential environment variables:
-  `$env:TF_VAR_database_password = $null` and
-  `$env:TF_VAR_openrouter_api_key = $null`.
+- The old `TF_VAR_database_password` and `TF_VAR_openrouter_api_key` environment
+  variables are no longer used and can be cleared from existing shell sessions.
 - Deletion protection is enabled by default. For deliberate development
   teardown, set `deletion_protection=false` and apply that change before
   destroying the application stack. Non-empty PDF and state buckets are not

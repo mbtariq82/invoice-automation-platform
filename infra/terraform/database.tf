@@ -1,3 +1,16 @@
+module "credential_inputs" {
+  source = "./modules/credential_inputs"
+
+  providers = {
+    google = google.secret_source
+  }
+
+  project_id                   = var.project_id
+  name_prefix                  = var.name_prefix
+  database_credentials_version = var.database_credentials_version
+  openrouter_key_version       = var.openrouter_key_version
+}
+
 resource "google_sql_database_instance" "postgres" {
   project             = var.project_id
   name                = "${var.name_prefix}-postgres"
@@ -48,7 +61,7 @@ resource "google_sql_user" "application" {
   project             = var.project_id
   instance            = google_sql_database_instance.postgres.name
   name                = "invoice_app"
-  password_wo         = var.database_password
+  password_wo         = module.credential_inputs.database_password
   password_wo_version = var.database_credentials_version
   # This user owns migrated tables; removing it directly can block teardown.
   deletion_policy = "ABANDON"
@@ -72,7 +85,7 @@ resource "google_secret_manager_secret" "database_url" {
 
 resource "google_secret_manager_secret_version" "database_url" {
   secret                 = google_secret_manager_secret.database_url.id
-  secret_data_wo         = "postgresql+psycopg://${google_sql_user.application.name}:${replace(urlencode(var.database_password), "+", "%20")}@/${google_sql_database.invoices.name}?host=/cloudsql/${google_sql_database_instance.postgres.connection_name}"
+  secret_data_wo         = "postgresql+psycopg://${google_sql_user.application.name}:${replace(urlencode(module.credential_inputs.database_password), "+", "%20")}@/${google_sql_database.invoices.name}?host=/cloudsql/${google_sql_database_instance.postgres.connection_name}"
   secret_data_wo_version = tostring(var.database_credentials_version)
   deletion_policy        = "ABANDON"
 
@@ -99,7 +112,7 @@ resource "google_secret_manager_secret" "openrouter_api_key" {
 
 resource "google_secret_manager_secret_version" "openrouter_api_key" {
   secret                 = google_secret_manager_secret.openrouter_api_key.id
-  secret_data_wo         = var.openrouter_api_key
+  secret_data_wo         = module.credential_inputs.openrouter_api_key
   secret_data_wo_version = tostring(var.openrouter_key_version)
   deletion_policy        = "ABANDON"
 

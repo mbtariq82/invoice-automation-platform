@@ -11,7 +11,6 @@ locals {
     "iam.googleapis.com",
     "logging.googleapis.com",
     "run.googleapis.com",
-    "secretmanager.googleapis.com",
     "serviceusage.googleapis.com",
     "sqladmin.googleapis.com",
     "storage.googleapis.com",
