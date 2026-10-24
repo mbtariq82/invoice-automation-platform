@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from invoice_automation_platform import api
-from invoice_automation_platform.api import create_app, get_client, get_model
+from invoice_automation_platform.api import create_app, get_client, get_db, get_model
 from invoice_automation_platform.extraction import extract_pdf_text_from_bytes
 from invoice_automation_platform.schemas import Invoice, InvoiceLine
 
@@ -37,10 +37,11 @@ def sample_invoice() -> Invoice:
 
 
 @pytest.fixture
-def client() -> TestClient:
+def client(db_session) -> TestClient:
     app = create_app()
     app.dependency_overrides[get_client] = lambda: object()
     app.dependency_overrides[get_model] = lambda: "test-model"
+    app.dependency_overrides[get_db] = lambda: db_session
     with TestClient(app) as test_client:
         yield test_client
 
@@ -70,6 +71,54 @@ def test_extract_pdf_returns_invoice(client: TestClient, monkeypatch) -> None:
     assert body["document_type"] == "invoice"
     assert Decimal(str(body["total"])) == Decimal("110.00")
     assert body["lines"][0]["description"] == "Widget"
+    assert body["cached"] is False
+    assert isinstance(body["id"], int)
+    assert body["source_filename"] == "invoice.pdf"
+
+
+def test_extract_is_idempotent_for_the_same_pdf(client: TestClient, monkeypatch) -> None:
+    calls = []
+
+    def fake_extract_invoice(openai_client, model, text):
+        calls.append(text)
+        return sample_invoice()
+
+    monkeypatch.setattr(api, "extract_invoice", fake_extract_invoice)
+    pdf_bytes = make_pdf("Acme invoice")
+
+    first = client.post(
+        "/v1/invoices/extract",
+        files={"file": ("invoice.pdf", pdf_bytes, "application/pdf")},
+    )
+    second = client.post(
+        "/v1/invoices/extract",
+        files={"file": ("invoice.pdf", pdf_bytes, "application/pdf")},
+    )
+
+    assert len(calls) == 1
+    assert first.json()["cached"] is False
+    assert second.json()["cached"] is True
+    assert first.json()["id"] == second.json()["id"]
+
+
+def test_list_and_get_invoice(client: TestClient, monkeypatch) -> None:
+    monkeypatch.setattr(api, "extract_invoice", lambda c, m, t: sample_invoice())
+
+    created = client.post(
+        "/v1/invoices/extract",
+        files={"file": ("invoice.pdf", make_pdf("Acme invoice"), "application/pdf")},
+    ).json()
+
+    listed = client.get("/v1/invoices")
+    assert listed.status_code == 200
+    assert any(item["id"] == created["id"] for item in listed.json())
+
+    fetched = client.get(f"/v1/invoices/{created['id']}")
+    assert fetched.status_code == 200
+    assert fetched.json()["vendor_name"] == "Acme Industrial Supply Co"
+
+    missing = client.get("/v1/invoices/999999999")
+    assert missing.status_code == 404
 
 
 def test_extract_rejects_non_pdf_content_type(client: TestClient) -> None:
