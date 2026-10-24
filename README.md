@@ -72,6 +72,31 @@ Every extraction is persisted in Postgres, keyed by the SHA-256 of the
 uploaded bytes. Uploading the same PDF again skips the model call and returns
 the stored result with `"cached": true`.
 
+Invoice responses include a `totals_check`, computed from the stored amounts:
+
+```json
+{
+  "status": "mismatch",
+  "subtotal_plus_tax": "110.00",
+  "difference": "15.00",
+  "reason": "Total differs from subtotal plus tax by more than 0.01; shipping, discounts, or other adjustments may explain the difference."
+}
+```
+
+`matched` means subtotal plus tax agrees with total within 0.01 (inclusive).
+`mismatch` reports a larger difference; `difference` is total minus
+`subtotal_plus_tax`. Missing subtotal or tax returns `not_checked` with null
+calculated amounts. An explicit zero tax is checked. Calculations use `Decimal`
+and retain credit-note signs. The fixed 0.01 tolerance currently targets
+two-decimal monetary amounts.
+
+This is a header arithmetic diagnostic, not approval or proof of invoice
+accuracy. Shipping, discounts and other adjustments are not yet captured in
+the schema and can explain a mismatch. Matching headers can still hide line
+errors or an incorrect tax rate. The check preserves extracted values and
+does not set the benchmark's `flagged` field. It is recomputed for uploads,
+cached results, lists and individual records; no database migration is needed.
+
 After changing `src/invoice_automation_platform/models.py`, generate a new
 migration and apply it:
 
