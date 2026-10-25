@@ -39,10 +39,12 @@ def create_invoice_record(
     content_hash: str,
     source_filename: str | None,
     invoice: Invoice,
+    pdf_object_name: str | None = None,
 ) -> InvoiceRecord:
     record = InvoiceRecord(
         content_hash=content_hash,
         source_filename=source_filename,
+        pdf_object_name=pdf_object_name,
         vendor_name=invoice.vendor_name,
         invoice_number=invoice.invoice_number,
         invoice_date=invoice.invoice_date,

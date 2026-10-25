@@ -14,9 +14,9 @@ The default region is `europe-west2` (London). This is a development setup;
 Cloud SQL incurs charges while running, including before the API is deployed.
 Configure billing alerts for the project.
 
-**PDF storage integration is a follow-up application change.** This configuration
-creates the bucket, grants read/create access and supplies `INVOICE_BUCKET` to the
-API. The current API does not yet upload PDF bytes or save object references.
+The application archives original PDFs in this private bucket, using a content
+hash as the object name. This configuration grants the runtime create/read access
+and supplies `INVOICE_BUCKET` to the API.
 
 ## Prerequisites
 

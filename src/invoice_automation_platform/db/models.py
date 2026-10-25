@@ -18,6 +18,7 @@ class InvoiceRecord(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     content_hash: Mapped[str] = mapped_column(String(64), index=True)
     source_filename: Mapped[str | None] = mapped_column(String(255))
+    pdf_object_name: Mapped[str | None] = mapped_column(String(512), unique=True)
     vendor_name: Mapped[str] = mapped_column(String)
     invoice_number: Mapped[str | None] = mapped_column(String)
     invoice_date: Mapped[date | None] = mapped_column(Date)
