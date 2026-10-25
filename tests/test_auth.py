@@ -45,6 +45,14 @@ def test_signed_identity_ignores_spoofed_headers(signed_token):
     assert principal == auth.Principal("alice-subject", "alice@example.com")
 
 
+def test_dedicated_header_preserves_signed_application_identity(signed_token):
+    principal = auth.get_current_principal({
+        "authorization": "Bearer header.payload.SIGNATURE_REMOVED_BY_GOOGLE",
+        "x-api-authorization": f"Bearer {signed_token()}",
+    })
+    assert principal.subject == "alice-subject"
+
+
 @pytest.mark.parametrize("overrides", [
     {"aud": "https://other.run.app"}, {"exp": 1},
     {"iss": "https://attacker.example.com"}, {"sub": ""},
@@ -93,6 +101,9 @@ def test_protected_route_rejects_spoofing_and_accepts_signed_token(signed_token,
     with TestClient(app) as client:
         assert client.get("/v1/invoices", headers={"X-Goog-Authenticated-User-Email": "admin@example.com"}).status_code == 401
         listing.assert_not_awaited()
-        response = client.get("/v1/invoices", headers={"Authorization": f"Bearer {signed_token()}"})
+        response = client.get("/v1/invoices", headers={
+            "Authorization": "Bearer header.payload.SIGNATURE_REMOVED_BY_GOOGLE",
+            "X-API-Authorization": f"Bearer {signed_token()}",
+        })
         assert response.status_code == 200
         assert listing.call_args.kwargs["created_by"] == "alice-subject"

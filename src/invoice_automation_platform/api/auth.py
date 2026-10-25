@@ -44,7 +44,9 @@ def _matches(principal: Principal, members: set[str]) -> bool:
 
 
 def get_current_principal(headers: dict[str, str]) -> Principal:
-    authorization = headers.get("authorization", "")
+    # A dedicated header preserves the signed token across Cloud Run's IAM
+    # proxy, which can modify the standard authorization headers.
+    authorization = headers.get("x-api-authorization", headers.get("authorization", ""))
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token.strip():
         raise HTTPException(401, "Authentication required", headers={"WWW-Authenticate": "Bearer"})

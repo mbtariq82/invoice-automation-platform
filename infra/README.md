@@ -229,7 +229,7 @@ Test the private service using an account with Cloud Run Invoker permission:
 ```powershell
 $serviceUrl = terraform -chdir=infra/terraform output -raw service_url
 $token = gcloud auth print-identity-token
-$headers = @{ Authorization = "Bearer $token"; 'X-Serverless-Authorization' = "Bearer $token" }
+$headers = @{ Authorization = "Bearer $token"; 'X-API-Authorization' = "Bearer $token" }
 Invoke-RestMethod -Uri "$serviceUrl/health" -Headers $headers
 Invoke-RestMethod -Uri "$serviceUrl/v1/invoices" -Headers $headers
 ```
@@ -242,9 +242,11 @@ tokens target your OAuth client ID. For this development environment only,
 `gcloud auth print-identity-token` uses the Google Cloud CLI OAuth client ID
 `32555940559.apps.googleusercontent.com`, which must be explicitly allowed when
 using that development token. Do not include it in production environments.
-Sending both headers lets Cloud Run check `X-Serverless-Authorization` while
-the API verifies the original signed `Authorization` token. Swagger's Authorize
-button accepts the bearer token when accessing `/docs` through the local proxy.
+Sending both headers lets Cloud Run check `Authorization` while the API verifies
+the intact signed token in `X-API-Authorization`. This is necessary because
+Cloud Run can modify the standard authorization headers. Swagger's Authorize
+button accepts `Bearer <token>` for the `X-API-Authorization` scheme when
+accessing `/docs` through the local proxy.
 Unlisted callers receive 403; missing/invalid tokens receive 401. Existing rows
 without an owner remain visible only to explicitly configured admins.
 
