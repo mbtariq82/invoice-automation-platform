@@ -90,11 +90,13 @@ Copy-Item infra/bootstrap/terraform.tfstate infra/bootstrap/terraform.tfstate.pr
 Copy-Item infra/bootstrap/backend.tf.example infra/bootstrap/backend.tf
 terraform -chdir=infra/bootstrap init -migrate-state -backend-config="bucket=$stateBucket" -backend-config="prefix=bootstrap"
 
-terraform -chdir=infra/terraform init -backend-config="bucket=$stateBucket" -backend-config="prefix=dev"
+Copy-Item infra/terraform/backend.hcl.example infra/terraform/backend.hcl
+# Edit infra/terraform/backend.hcl and set bucket=$stateBucket.
+terraform -chdir=infra/terraform init -backend-config=backend.hcl
 ```
 
-For subsequent sessions, retrieve the same bucket name and initialize each
-module with its existing bucket and prefix. Do not create a new empty state for
+For subsequent sessions, keep using the same ignored `backend.hcl` and initialize
+each module with its existing bucket and prefix. Do not create a new empty state for
 resources already managed by an existing state. The state bucket uses object
 versioning, private access and backend locking. [GCS backend documentation](https://docs.hashicorp.com/terraform/language/backend/gcs)
 
