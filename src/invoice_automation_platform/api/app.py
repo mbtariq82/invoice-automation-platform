@@ -13,6 +13,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.concurrency import run_in_threadpool
 from openai import AsyncOpenAI
 from pydantic import ConfigDict
 from sqlalchemy.orm import Session
@@ -32,6 +33,7 @@ extract_invoice = extract_invoice_async
 from ..db.models import InvoiceRecord
 from ..invoices.schemas import Invoice
 from ..config.secrets import SecretConfigurationError
+from ..config.storage import archive_invoice_pdf
 from ..invoices.validation import TotalsCheck, check_invoice_totals
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,7 @@ def _record_fields(record: InvoiceRecord) -> dict[str, Any]:
     return {
         "id": record.id,
         "source_filename": record.source_filename,
+        "pdf_object_name": record.pdf_object_name,
         "created_at": record.created_at,
         **invoice.model_dump(),
         "totals_check": check_invoice_totals(invoice),
@@ -58,6 +61,7 @@ class InvoiceRecordResponse(Invoice):
 
     id: int
     source_filename: str | None
+    pdf_object_name: str | None
     created_at: datetime
     totals_check: TotalsCheck
 
@@ -166,10 +170,25 @@ async def extract_invoice_from_pdf(
             detail="Invoice extraction failed",
         ) from exc
 
+    try:
+        pdf_object_name = await run_in_threadpool(
+            archive_invoice_pdf,
+            data,
+            content_hash=content_hash,
+            source_filename=file.filename,
+        )
+    except Exception as exc:
+        logger.exception("Could not archive PDF")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not archive the PDF",
+        ) from exc
+
     record = repository.create_invoice_record(
         db,
         content_hash=content_hash,
         source_filename=file.filename,
+        pdf_object_name=pdf_object_name,
         invoice=invoice,
     )
     return ExtractInvoiceResponse.from_record(record, cached=False)

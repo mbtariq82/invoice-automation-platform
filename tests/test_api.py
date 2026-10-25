@@ -40,7 +40,8 @@ def sample_invoice() -> Invoice:
 
 
 @pytest.fixture
-def client(db_session) -> TestClient:
+def client(db_session, monkeypatch) -> TestClient:
+    monkeypatch.setattr(api_app, "archive_invoice_pdf", lambda *args, **kwargs: "invoices/test.pdf")
     app = create_app()
     app.dependency_overrides[get_client] = lambda: object()
     app.dependency_overrides[get_model] = lambda: "test-model"
@@ -77,6 +78,31 @@ def test_extract_pdf_returns_invoice(client: TestClient, monkeypatch) -> None:
     assert body["cached"] is False
     assert isinstance(body["id"], int)
     assert body["source_filename"] == "invoice.pdf"
+    assert body["pdf_object_name"] == "invoices/test.pdf"
+
+
+def test_extract_archives_original_pdf(client: TestClient, monkeypatch) -> None:
+    archived = {}
+
+    async def fake_extract_invoice(openai_client, model, text):
+        return sample_invoice()
+
+    def fake_archive(data, *, content_hash, source_filename):
+        archived.update(data=data, content_hash=content_hash, source_filename=source_filename)
+        return f"invoices/{content_hash}.pdf"
+
+    monkeypatch.setattr(api_app, "extract_invoice", fake_extract_invoice)
+    monkeypatch.setattr(api_app, "archive_invoice_pdf", fake_archive)
+    pdf_bytes = make_pdf("Acme invoice")
+    response = client.post(
+        "/v1/invoices/extract",
+        files={"file": ("invoice.pdf", pdf_bytes, "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    assert archived["data"] == pdf_bytes
+    assert archived["content_hash"] == response.json()["pdf_object_name"].split("/")[1][:-4]
+    assert archived["source_filename"] == "invoice.pdf"
 
 
 def test_extract_is_idempotent_for_the_same_pdf(client: TestClient, monkeypatch) -> None:
