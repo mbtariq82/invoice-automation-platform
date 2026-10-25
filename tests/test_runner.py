@@ -2,6 +2,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from invoice_automation_platform import runner
+from invoice_automation_platform.evaluation import runner as evaluation_runner
 from invoice_automation_platform.runner import select_documents
 from invoice_automation_platform.schemas import Invoice
 
@@ -44,11 +45,11 @@ def test_extract_one_retries_transient_failures(monkeypatch) -> None:
             document_type="invoice",
         )
 
-    monkeypatch.setattr(runner, "extract_pdf_text", lambda path: "text")
-    monkeypatch.setattr(runner, "extract_invoice", fake_extract_invoice)
-    monkeypatch.setattr(runner.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(evaluation_runner, "extract_pdf_text", lambda path: "text")
+    monkeypatch.setattr(evaluation_runner, "extract_invoice", fake_extract_invoice)
+    monkeypatch.setattr(evaluation_runner.time, "sleep", lambda seconds: None)
 
-    doc_id, prediction, error = runner._extract_one(
+    doc_id, prediction, error = evaluation_runner._extract_one(
         {"doc_id": "clean-a", "file": "a.pdf"},
         Path("."),
         object(),

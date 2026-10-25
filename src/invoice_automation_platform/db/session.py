@@ -4,7 +4,7 @@ from functools import lru_cache
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .secrets import get_secret
+from ..config.secrets import get_secret
 
 
 def database_url() -> str:
