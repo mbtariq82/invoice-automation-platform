@@ -72,6 +72,16 @@ resource "google_cloud_run_v2_service" "api" {
         value = join(",", var.admin_members)
       }
 
+      env {
+        name  = "API_TOKEN_AUDIENCES"
+        value = join(",", sort(tolist(var.api_token_audiences)))
+      }
+
+      env {
+        name  = "API_ALLOWED_MEMBERS"
+        value = join(",", sort(tolist(var.invoker_members)))
+      }
+
       startup_probe {
         http_get {
           path = "/health"
@@ -88,6 +98,11 @@ resource "google_cloud_run_v2_service" "api" {
     precondition {
       condition     = var.container_image != "" && trimspace(var.openrouter_model) != ""
       error_message = "Set container_image and openrouter_model before enabling deploy_application."
+    }
+
+    precondition {
+      condition     = length(var.api_token_audiences) > 0 && length(var.invoker_members) > 0
+      error_message = "Set api_token_audiences and invoker_members before enabling deploy_application."
     }
   }
 

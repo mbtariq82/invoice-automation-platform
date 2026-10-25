@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Annotated, Any
 from fastapi import Request
 from fastapi.concurrency import run_in_threadpool
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from fastapi import (
     APIRouter,
@@ -44,6 +45,7 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 PDF_CONTENT_TYPES = {"application/pdf", "application/x-pdf"}
 
 router = APIRouter()
+bearer = HTTPBearer(auto_error=False)
 
 
 def _record_fields(record: InvoiceRecord) -> dict[str, Any]:
@@ -112,7 +114,10 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def current_principal(request: Request) -> Principal:
+def current_principal(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+) -> Principal:
     return get_current_principal(dict(request.headers))
 
 

@@ -160,7 +160,7 @@ The database uses a public IP with no authorized networks. Cloud Run connects
 through the authenticated, encrypted Cloud SQL integration and its `/cloudsql`
 socket; direct database connections are not opened to the internet. The
 application remains IAM-authenticated. The API also records the authenticated
-Cloud Run subject as the invoice owner; set `admin_members` for identities that
+verified Google token subject as the invoice owner; set `admin_members` for identities that
 need to view all invoices. The PDF bucket enforces public access
 prevention and uniform bucket-level IAM access.
 
@@ -229,9 +229,24 @@ Test the private service using an account with Cloud Run Invoker permission:
 ```powershell
 $serviceUrl = terraform -chdir=infra/terraform output -raw service_url
 $token = gcloud auth print-identity-token
-$headers = @{ Authorization = "Bearer $token" }
+$headers = @{ Authorization = "Bearer $token"; 'X-Serverless-Authorization' = "Bearer $token" }
 Invoke-RestMethod -Uri "$serviceUrl/health" -Headers $headers
+Invoke-RestMethod -Uri "$serviceUrl/v1/invoices" -Headers $headers
 ```
+
+The API verifies the Google signature, issuer, expiration, audience, and caller
+allowlist independently of Cloud Run IAM. It never trusts plain
+`X-Goog-Authenticated-User-*` headers. Set `api_token_audiences` explicitly before
+deploying. Service-account tokens normally target the service URL; browser login
+tokens target your OAuth client ID. For this development environment only,
+`gcloud auth print-identity-token` uses the Google Cloud CLI OAuth client ID
+`32555940559.apps.googleusercontent.com`, which must be explicitly allowed when
+using that development token. Do not include it in production environments.
+Sending both headers lets Cloud Run check `X-Serverless-Authorization` while
+the API verifies the original signed `Authorization` token. Swagger's Authorize
+button accepts the bearer token when accessing `/docs` through the local proxy.
+Unlisted callers receive 403; missing/invalid tokens receive 401. Existing rows
+without an owner remain visible only to explicitly configured admins.
 
 You can add further specific users or service accounts through `invoker_members`,
 for example `["user:you@example.com"]` in your non-secret configuration. The
