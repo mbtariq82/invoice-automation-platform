@@ -159,7 +159,9 @@ in the environment templates under `infra/terraform/environments`; real
 The database uses a public IP with no authorized networks. Cloud Run connects
 through the authenticated, encrypted Cloud SQL integration and its `/cloudsql`
 socket; direct database connections are not opened to the internet. The
-application remains IAM-authenticated. The PDF bucket enforces public access
+application remains IAM-authenticated. The API also records the authenticated
+verified Google token subject as the invoice owner; set `admin_members` for identities that
+need to view all invoices. The PDF bucket enforces public access
 prevention and uniform bucket-level IAM access.
 
 Terraform passes `DATABASE_URL_SECRET_VERSION` and
@@ -167,9 +169,14 @@ Terraform passes `DATABASE_URL_SECRET_VERSION` and
 application reads their values directly through the Secret Manager client,
 using its runtime identity, verifies payload checksums and caches successful
 reads in memory. The migration job receives only the database reference.
-Secrets are loaded on first use, so `/health` checks startup rather than secret
-access or database connectivity; successful migrations and an invoice request
-verify those dependencies. Local `.env` credentials remain available when no
+Startup loads the database secret and executes `SELECT 1` before accepting
+requests. Secret reads have a 10-second timeout, database connections use a
+10-second connection timeout, and the startup connection/query phase is limited
+to 15 seconds. Database failures prevent startup. OpenRouter credentials remain
+lazy, so the startup check does not verify model access or application tables.
+Cloud Run keeps one instance warm, which incurs idle-instance charges and reduces
+delays after inactivity; instance replacements can still require startup.
+Local `.env` credentials remain available when no
 secret-version references are configured.
 
 ## 3. Build and push an application image
@@ -222,9 +229,26 @@ Test the private service using an account with Cloud Run Invoker permission:
 ```powershell
 $serviceUrl = terraform -chdir=infra/terraform output -raw service_url
 $token = gcloud auth print-identity-token
-$headers = @{ Authorization = "Bearer $token" }
+$headers = @{ Authorization = "Bearer $token"; 'X-API-Authorization' = "Bearer $token" }
 Invoke-RestMethod -Uri "$serviceUrl/health" -Headers $headers
+Invoke-RestMethod -Uri "$serviceUrl/v1/invoices" -Headers $headers
 ```
+
+The API verifies the Google signature, issuer, expiration, audience, and caller
+allowlist independently of Cloud Run IAM. It never trusts plain
+`X-Goog-Authenticated-User-*` headers. Set `api_token_audiences` explicitly before
+deploying. Service-account tokens normally target the service URL; browser login
+tokens target your OAuth client ID. For this development environment only,
+`gcloud auth print-identity-token` uses the Google Cloud CLI OAuth client ID
+`32555940559.apps.googleusercontent.com`, which must be explicitly allowed when
+using that development token. Do not include it in production environments.
+Sending both headers lets Cloud Run check `Authorization` while the API verifies
+the intact signed token in `X-API-Authorization`. This is necessary because
+Cloud Run can modify the standard authorization headers. Swagger's Authorize
+button accepts `Bearer <token>` for the `X-API-Authorization` scheme when
+accessing `/docs` through the local proxy.
+Unlisted callers receive 403; missing/invalid tokens receive 401. Existing rows
+without an owner remain visible only to explicitly configured admins.
 
 You can add further specific users or service accounts through `invoker_members`,
 for example `["user:you@example.com"]` in your non-secret configuration. The

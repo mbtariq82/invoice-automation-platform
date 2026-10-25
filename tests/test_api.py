@@ -7,11 +7,15 @@ from fastapi.testclient import TestClient
 
 from invoice_automation_platform import api
 import importlib
+import os
+from unittest.mock import AsyncMock
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 api_app = importlib.import_module("invoice_automation_platform.api.app")
 from invoice_automation_platform.api import create_app, get_client, get_db, get_model
 from invoice_automation_platform.extraction import extract_pdf_text_from_bytes
 from invoice_automation_platform.invoices.schemas import Invoice, InvoiceLine
+from invoice_automation_platform.api.auth import Principal
 
 
 def make_pdf(text: str = "") -> bytes:
@@ -40,13 +44,38 @@ def sample_invoice() -> Invoice:
 
 
 @pytest.fixture
-def client(db_session) -> TestClient:
+def client(test_engine, monkeypatch) -> TestClient:
+    monkeypatch.setattr(api_app, "initialize_database", AsyncMock())
     app = create_app()
     app.dependency_overrides[get_client] = lambda: object()
     app.dependency_overrides[get_model] = lambda: "test-model"
-    app.dependency_overrides[get_db] = lambda: db_session
-    with TestClient(app) as test_client:
-        yield test_client
+    app.dependency_overrides[api_app.current_principal] = lambda: Principal("alice-subject", "alice@example.com")
+    with TestClient(
+        app,
+    ) as test_client:
+        async def open_test_session():
+            engine = create_async_engine(os.environ["TEST_DATABASE_URL"])
+            connection = await engine.connect()
+            transaction = await connection.begin()
+            session = async_sessionmaker(bind=connection, expire_on_commit=False)()
+            return engine, connection, transaction, session
+
+        engine, connection, transaction, session = test_client.portal.call(open_test_session)
+
+        async def override_db():
+            yield session
+
+        app.dependency_overrides[get_db] = override_db
+        try:
+            yield test_client
+        finally:
+            async def close_test_session():
+                await session.close()
+                await transaction.rollback()
+                await connection.close()
+                await engine.dispose()
+
+            test_client.portal.call(close_test_session)
 
 
 def test_health(client: TestClient) -> None:

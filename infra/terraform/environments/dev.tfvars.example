@@ -8,3 +8,5 @@ deploy_application           = false
 container_image              = ""
 openrouter_model             = ""
 invoker_members              = []
+admin_members                = []
+api_token_audiences          = [] # Set the service URL or an OAuth client ID before deploying.

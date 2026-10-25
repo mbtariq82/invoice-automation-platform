@@ -2,7 +2,7 @@ import hashlib
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import InvoiceRecord
 from ..invoices.schemas import Invoice, InvoiceLine
@@ -12,37 +12,46 @@ def hash_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def get_by_content_hash(session: Session, content_hash: str) -> InvoiceRecord | None:
+async def get_by_content_hash(session: AsyncSession, content_hash: str, *, created_by: str | None = None) -> InvoiceRecord | None:
     statement = select(InvoiceRecord).where(InvoiceRecord.content_hash == content_hash)
-    return session.scalar(statement)
+    if created_by is not None:
+        statement = statement.where(InvoiceRecord.created_by == created_by)
+    return await session.scalar(statement)
 
 
-def get_by_id(session: Session, record_id: int) -> InvoiceRecord | None:
-    return session.get(InvoiceRecord, record_id)
+async def get_by_id(session: AsyncSession, record_id: int, *, created_by: str | None = None) -> InvoiceRecord | None:
+    statement = select(InvoiceRecord).where(InvoiceRecord.id == record_id)
+    if created_by is not None:
+        statement = statement.where(InvoiceRecord.created_by == created_by)
+    return await session.scalar(statement)
 
 
-def list_invoices(
-    session: Session, *, limit: int = 20, offset: int = 0
+async def list_invoices(
+    session: AsyncSession, *, limit: int = 20, offset: int = 0, created_by: str | None = None
 ) -> list[InvoiceRecord]:
+    statement = select(InvoiceRecord)
+    if created_by is not None:
+        statement = statement.where(InvoiceRecord.created_by == created_by)
     statement = (
-        select(InvoiceRecord)
-        .order_by(InvoiceRecord.created_at.desc(), InvoiceRecord.id.desc())
+        statement.order_by(InvoiceRecord.created_at.desc(), InvoiceRecord.id.desc())
         .limit(limit)
         .offset(offset)
     )
-    return list(session.scalars(statement))
+    return list(await session.scalars(statement))
 
 
-def create_invoice_record(
-    session: Session,
+async def create_invoice_record(
+    session: AsyncSession,
     *,
     content_hash: str,
     source_filename: str | None,
     invoice: Invoice,
+    created_by: str = "legacy",
 ) -> InvoiceRecord:
     record = InvoiceRecord(
         content_hash=content_hash,
         source_filename=source_filename,
+        created_by=created_by,
         vendor_name=invoice.vendor_name,
         invoice_number=invoice.invoice_number,
         invoice_date=invoice.invoice_date,
@@ -58,8 +67,8 @@ def create_invoice_record(
         ],
     )
     session.add(record)
-    session.commit()
-    session.refresh(record)
+    await session.commit()
+    await session.refresh(record)
     return record
 
 

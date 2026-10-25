@@ -78,8 +78,14 @@ The result is written to `results/clean-us-clean-simple.json`.
 ## Run the API
 
 ```bash
-uv run uvicorn invoice_automation_platform.api:app --reload
+uv run uvicorn invoice_automation_platform.api:app --reload --loop invoice_automation_platform.api.event_loop:loop_factory
 ```
+
+The API uses SQLAlchemy's async engine and sessions with psycopg. The custom
+loop factory selects a Windows-compatible event loop for local development;
+`uv run invoice-api` uses it automatically. Alembic continues using psycopg's
+synchronous engine with the same database URL. API shutdown releases pooled
+database connections and closes the async OpenRouter client.
 
 Or use the installed entry point:
 
