@@ -176,7 +176,22 @@ python -m invoice_automation_platform.evaluation.runner --workers 3 --retries 2 
 Completed documents are written to the predictions file as they finish, so
 `--resume` skips them on the next run.
 
-## Score the predictions
+## Compare AI models
+
+The controlled comparison supports OpenAI GPT-5.4 mini, Anthropic Claude Sonnet
+4.6, TypeSafe Jev 1.14 and Google Gemini 3.1 Pro preview through OpenRouter.
+Jev participates in a shared document-classification/review task; the other three
+also compete on full invoice extraction. Failures count in the selected denominator.
+
+```powershell
+uv run invoice-benchmark --dry-run
+uv run invoice-benchmark --limit 14 --out results/comparison-smoke
+```
+
+The second command makes billed API calls. See the
+[comparison guide](benchmarks/README.md) for full runs, repeats, costs and reports.
+
+## Score single-model predictions
 
 From the benchmark directory:
 

@@ -1,0 +1,28 @@
+{
+  "candidates": [
+    {
+      "name": "openai",
+      "model": "openai/gpt-5.4-mini",
+      "api": "chat",
+      "parameters": {"reasoning": {"effort": "none"}}
+    },
+    {
+      "name": "anthropic",
+      "model": "anthropic/claude-sonnet-4.6",
+      "api": "chat",
+      "parameters": {"temperature": 0, "reasoning": {"enabled": false}}
+    },
+    {
+      "name": "jev",
+      "model": "typesafe/jev-1.14",
+      "api": "decisions",
+      "parameters": {}
+    },
+    {
+      "name": "google",
+      "model": "google/gemini-3.1-pro-preview",
+      "api": "chat",
+      "parameters": {"temperature": 0, "reasoning": {"effort": "low"}}
+    }
+  ]
+}
