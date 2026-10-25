@@ -96,7 +96,7 @@ run "application_uses_the_database_bucket_and_pinned_secrets" {
 
   assert {
     condition = (
-      google_cloud_run_v2_service.api[0].scaling[0].min_instance_count == 0 &&
+      google_cloud_run_v2_service.api[0].scaling[0].min_instance_count == 1 &&
       google_cloud_run_v2_service.api[0].scaling[0].max_instance_count == 1 &&
       google_cloud_run_v2_service.api[0].template[0].max_instance_request_concurrency == 2
     )

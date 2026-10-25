@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import google_crc32c
 import pytest
@@ -146,7 +146,11 @@ def test_database_and_model_client_use_the_secret_resolver(monkeypatch, secret_c
     assert secret_client.access_secret_version.call_count == 1
 
 
-def test_health_check_does_not_access_secrets(monkeypatch):
+def test_health_check_does_not_access_model_secrets(monkeypatch):
+    import importlib
+    api_module = importlib.import_module("invoice_automation_platform.api.app")
+    initialize = AsyncMock()
+    monkeypatch.setattr(api_module, "initialize_database", initialize)
     monkeypatch.setenv("DATABASE_URL_SECRET_VERSION", VERSION)
     monkeypatch.setenv("OPENROUTER_API_KEY_SECRET_VERSION", VERSION)
     factory = Mock(side_effect=AssertionError("Health must not fetch secrets"))
@@ -155,6 +159,7 @@ def test_health_check_does_not_access_secrets(monkeypatch):
     with TestClient(api.create_app()) as client:
         assert client.get("/health").json() == {"status": "ok"}
     factory.assert_not_called()
+    initialize.assert_awaited_once()
 
 
 def test_api_returns_a_safe_error_when_credentials_cannot_be_loaded(

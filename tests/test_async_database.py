@@ -1,4 +1,5 @@
 import importlib
+from unittest.mock import AsyncMock, Mock
 
 import anyio
 import httpx
@@ -20,6 +21,8 @@ async def test_production_dependency_uses_async_sessions_and_releases_pool(
     )
     await database.close_database()
     try:
+        await database.initialize_database()
+        assert database.get_engine().pool.checkedout() == 0
         dependency = database.get_db()
         session = await anext(dependency)
         assert isinstance(database.get_engine(), AsyncEngine)
@@ -32,6 +35,34 @@ async def test_production_dependency_uses_async_sessions_and_releases_pool(
         await database.close_database()
     assert database.get_engine.cache_info().currsize == 0
     assert database.get_session_factory.cache_info().currsize == 0
+
+
+@pytest.mark.anyio
+async def test_startup_query_has_a_bounded_timeout(monkeypatch):
+    async def stalled_query(*args):
+        await anyio.sleep_forever()
+
+    session = AsyncMock()
+    session.execute.side_effect = stalled_query
+    context = AsyncMock()
+    context.__aenter__.return_value = session
+    monkeypatch.setattr(database, "_initialize_session_factory", lambda: Mock(return_value=context))
+    monkeypatch.setattr(database, "DATABASE_STARTUP_TIMEOUT", 0.01)
+    with pytest.raises(TimeoutError):
+        await database.initialize_database()
+    context.__aexit__.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_failed_database_startup_blocks_serving_and_cleans_up(monkeypatch):
+    api = importlib.import_module("invoice_automation_platform.api.app")
+    monkeypatch.setattr(api, "initialize_database", AsyncMock(side_effect=RuntimeError("Unavailable")))
+    cleanup = AsyncMock()
+    monkeypatch.setattr(api, "close_database", cleanup)
+    with pytest.raises(RuntimeError, match="Unavailable"):
+        async with api.lifespan(api.create_app()):
+            pytest.fail("Startup must fail before accepting requests")
+    cleanup.assert_awaited_once()
 
 
 @pytest.mark.anyio
