@@ -10,7 +10,8 @@ from fastapi.testclient import TestClient
 from google.api_core.exceptions import NotFound, PermissionDenied
 from google.auth.exceptions import DefaultCredentialsError
 
-from invoice_automation_platform import api, db, extraction, secrets
+from invoice_automation_platform import api, db, extraction
+from invoice_automation_platform.config import secrets
 
 VERSION = "projects/example-project/secrets/example-secret/versions/1"
 

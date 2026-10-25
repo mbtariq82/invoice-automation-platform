@@ -1,8 +1,8 @@
 from datetime import date
 from decimal import Decimal
 
-from invoice_automation_platform import repository
-from invoice_automation_platform.schemas import Invoice, InvoiceLine
+from invoice_automation_platform.db import repository
+from invoice_automation_platform.invoices.schemas import Invoice, InvoiceLine
 
 
 def sample_invoice() -> Invoice:

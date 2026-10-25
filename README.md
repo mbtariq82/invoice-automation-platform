@@ -134,7 +134,7 @@ errors or an incorrect tax rate. The check preserves extracted values and
 does not set the benchmark's `flagged` field. It is recomputed for uploads,
 cached results, lists and individual records; no database migration is needed.
 
-After changing `src/invoice_automation_platform/models.py`, generate a new
+After changing `src/invoice_automation_platform/db/models.py`, generate a new
 migration and apply it:
 
 ```bash
@@ -149,14 +149,14 @@ predictions in the benchmark's expected format. Use `--limit` for a small,
 cheap first run.
 
 ```bash
-python -m invoice_automation_platform.runner --category clean --limit 5
+python -m invoice_automation_platform.evaluation.runner --category clean --limit 5
 ```
 
 Other selectors:
 
 ```bash
-python -m invoice_automation_platform.runner --doc-id clean-us-clean-simple
-python -m invoice_automation_platform.runner --category clean --out results/clean.json
+python -m invoice_automation_platform.evaluation.runner --doc-id clean-us-clean-simple
+python -m invoice_automation_platform.evaluation.runner --category clean --out results/clean.json
 ```
 
 Image-only documents (photos and scans) are skipped for now.
@@ -164,7 +164,7 @@ Image-only documents (photos and scans) are skipped for now.
 For long runs, process documents concurrently and resume after an interruption:
 
 ```bash
-python -m invoice_automation_platform.runner --workers 3 --retries 2 --timeout 90 --resume
+python -m invoice_automation_platform.evaluation.runner --workers 3 --retries 2 --timeout 90 --resume
 ```
 
 Completed documents are written to the predictions file as they finish, so

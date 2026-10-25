@@ -2,9 +2,9 @@ from decimal import Decimal
 
 import pytest
 
-from invoice_automation_platform.predictions import invoice_to_prediction
-from invoice_automation_platform.schemas import Invoice
-from invoice_automation_platform.validation import check_invoice_totals
+from invoice_automation_platform.evaluation.predictions import invoice_to_prediction
+from invoice_automation_platform.invoices.schemas import Invoice
+from invoice_automation_platform.invoices.validation import check_invoice_totals
 
 
 @pytest.mark.parametrize(

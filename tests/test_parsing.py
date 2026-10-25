@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 
 from invoice_automation_platform.extraction import parse_invoice
-from invoice_automation_platform.normalization import normalize_invoice_payload
+from invoice_automation_platform.extraction.normalization import normalize_invoice_payload
 
 
 def test_normalize_invoice_payload_maps_aliases_and_drops_extras() -> None:

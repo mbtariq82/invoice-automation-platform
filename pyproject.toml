@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.scripts]
-invoice-automation-platform = "invoice_automation_platform.runner:main"
+invoice-automation-platform = "invoice_automation_platform.evaluation.runner:main"
 invoice-api = "invoice_automation_platform.api:run"
 
 [build-system]

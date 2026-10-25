@@ -1,8 +1,8 @@
 from datetime import date
 from decimal import Decimal
 
-from invoice_automation_platform.predictions import invoice_to_prediction
-from invoice_automation_platform.schemas import Invoice, InvoiceLine
+from invoice_automation_platform.evaluation.predictions import invoice_to_prediction
+from invoice_automation_platform.invoices.schemas import Invoice, InvoiceLine
 
 
 def test_invoice_to_prediction_uses_benchmark_field_names() -> None:

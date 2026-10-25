@@ -77,7 +77,7 @@ were not fully correct failed on:
 ## Reproduce
 
 ```powershell
-python -m invoice_automation_platform.runner --workers 3 --retries 2 --timeout 90 --resume --out results\baseline-pdf.json
+python -m invoice_automation_platform.evaluation.runner --workers 3 --retries 2 --timeout 90 --resume --out results\baseline-pdf.json
 
 Push-Location invoice-extraction-benchmark
 ..\.venv\Scripts\python.exe -m scorer.evaluate ..\results\baseline-pdf.json --markdown ..\results\baseline-scores.md --out ..\results\baseline-scores.json --allow-missing
