@@ -185,6 +185,10 @@ ignore files exclude credentials, local environments, benchmark documents and
 Terraform state. Deployment uses the image digest so the selected build does
 not change when a tag moves.
 
+Keep the deployed image digest, `deploy_application = true`, model identifier,
+and invoker principals in your ignored environment-specific `.auto.tfvars` file
+so future plans retain the deployed service configuration.
+
 ## 4. Deploy, migrate and verify
 
 ```powershell
