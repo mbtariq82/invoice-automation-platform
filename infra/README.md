@@ -118,14 +118,21 @@ versions in the console, as well as Secret Accessor on the two source secrets
 for planning. Bootstrap grants the accessor role to `credential_reader_members`.
 [Adding secret versions](https://docs.cloud.google.com/secret-manager/docs/add-secret-version)
 
-Only non-sensitive version numbers are supplied to Terraform:
+Copy the appropriate environment template and keep the real file local:
+
+```powershell
+Copy-Item infra/terraform/environments/dev.tfvars.example infra/terraform/environments/dev.tfvars
+```
+
+Only non-sensitive version numbers are supplied to Terraform. Pass the
+environment file explicitly on every plan and apply:
 
 ```powershell
 $env:TF_VAR_database_credentials_version = "1"
 $env:TF_VAR_openrouter_key_version = "1"
 terraform -chdir=infra/terraform init
-terraform -chdir=infra/terraform plan
-terraform -chdir=infra/terraform apply
+terraform -chdir=infra/terraform plan -var-file=environments/dev.tfvars
+terraform -chdir=infra/terraform apply -var-file=environments/dev.tfvars
 ```
 
 Terraform reads these exact source versions using the Google provider's
@@ -146,8 +153,8 @@ now owned by bootstrap; removing its old main-stack entry does not disable it.
 `deploy_application` defaults to `false`: the database, secrets, storage and
 image repository are created first. An existing application image is therefore
 not required for the initial apply. Optional non-secret configuration is shown
-in `terraform.tfvars.example`; environment variables above are sufficient for
-the defaults.
+in the environment templates under `infra/terraform/environments`; real
+`.tfvars` files remain ignored.
 
 The database uses a public IP with no authorized networks. Cloud Run connects
 through the authenticated, encrypted Cloud SQL integration and its `/cloudsql`
@@ -198,8 +205,8 @@ $env:TF_VAR_openrouter_model = Read-Host "OpenRouter model identifier"
 $invokerEmail = Read-Host "Google account email allowed to call the API"
 $env:TF_VAR_invoker_members = ConvertTo-Json -InputObject @("user:$invokerEmail") -Compress
 $env:TF_VAR_deploy_application = "true"
-terraform -chdir=infra/terraform plan
-terraform -chdir=infra/terraform apply
+terraform -chdir=infra/terraform plan -var-file=environments/dev.tfvars
+terraform -chdir=infra/terraform apply -var-file=environments/dev.tfvars
 
 $migrationJob = terraform -chdir=infra/terraform output -raw migration_job_name
 gcloud run jobs execute $migrationJob --project=$projectId --region=$region --wait

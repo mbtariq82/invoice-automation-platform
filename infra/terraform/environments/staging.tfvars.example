@@ -1,0 +1,10 @@
+# Copy to staging.tfvars and replace the project/image/model values before planning.
+project_id                   = "your-staging-project-id"
+region                       = "europe-west2"
+name_prefix                  = "invoice-staging"
+database_credentials_version = 1
+openrouter_key_version       = 1
+deploy_application           = false
+container_image              = ""
+openrouter_model             = ""
+invoker_members              = []
