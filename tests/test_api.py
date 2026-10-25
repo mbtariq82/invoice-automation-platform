@@ -57,7 +57,7 @@ def test_health(client: TestClient) -> None:
 
 
 def test_extract_pdf_returns_invoice(client: TestClient, monkeypatch) -> None:
-    def fake_extract_invoice(openai_client, model, text):
+    async def fake_extract_invoice(openai_client, model, text):
         return sample_invoice()
 
     monkeypatch.setattr(api_app, "extract_invoice", fake_extract_invoice)
@@ -82,7 +82,7 @@ def test_extract_pdf_returns_invoice(client: TestClient, monkeypatch) -> None:
 def test_extract_is_idempotent_for_the_same_pdf(client: TestClient, monkeypatch) -> None:
     calls = []
 
-    def fake_extract_invoice(openai_client, model, text):
+    async def fake_extract_invoice(openai_client, model, text):
         calls.append(text)
         return sample_invoice()
 
@@ -105,7 +105,10 @@ def test_extract_is_idempotent_for_the_same_pdf(client: TestClient, monkeypatch)
 
 
 def test_list_and_get_invoice(client: TestClient, monkeypatch) -> None:
-    monkeypatch.setattr(api_app, "extract_invoice", lambda c, m, t: sample_invoice())
+    async def fake_extract_invoice(client, model, text):
+        return sample_invoice()
+
+    monkeypatch.setattr(api_app, "extract_invoice", fake_extract_invoice)
 
     created = client.post(
         "/v1/invoices/extract",
@@ -138,7 +141,7 @@ def test_totals_check_is_consistent_across_api_responses(
     invoice = sample_invoice().model_copy(update={"tax": tax, "total": total})
     calls = []
 
-    def fake_extract_invoice(openai_client, model, text):
+    async def fake_extract_invoice(openai_client, model, text):
         calls.append(text)
         return invoice
 
@@ -212,7 +215,7 @@ def test_extract_rejects_pdf_without_text(client: TestClient) -> None:
 def test_extract_returns_bad_gateway_on_model_failure(
     client: TestClient, monkeypatch
 ) -> None:
-    def failing_extract_invoice(openai_client, model, text):
+    async def failing_extract_invoice(openai_client, model, text):
         raise ValueError("upstream failure")
 
     monkeypatch.setattr(api_app, "extract_invoice", failing_extract_invoice)
