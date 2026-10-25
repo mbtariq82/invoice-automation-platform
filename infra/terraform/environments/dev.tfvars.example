@@ -1,0 +1,10 @@
+# Copy to dev.tfvars and replace the project ID before planning.
+project_id                   = "your-development-project-id"
+region                       = "europe-west2"
+name_prefix                  = "invoice-dev"
+database_credentials_version = 1
+openrouter_key_version       = 1
+deploy_application           = false
+container_image              = ""
+openrouter_model             = ""
+invoker_members              = []
