@@ -8,6 +8,11 @@ resource "google_cloud_run_v2_service" "api" {
   ingress             = "INGRESS_TRAFFIC_ALL"
   labels              = local.labels
 
+  traffic {
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+  }
+
   scaling {
     min_instance_count = 1
     max_instance_count = 1
@@ -72,6 +77,16 @@ resource "google_cloud_run_v2_service" "api" {
         value = join(",", var.admin_members)
       }
 
+      env {
+        name  = "API_TOKEN_AUDIENCES"
+        value = join(",", sort(tolist(var.api_token_audiences)))
+      }
+
+      env {
+        name  = "API_ALLOWED_MEMBERS"
+        value = join(",", sort(tolist(var.invoker_members)))
+      }
+
       startup_probe {
         http_get {
           path = "/health"
@@ -88,6 +103,11 @@ resource "google_cloud_run_v2_service" "api" {
     precondition {
       condition     = var.container_image != "" && trimspace(var.openrouter_model) != ""
       error_message = "Set container_image and openrouter_model before enabling deploy_application."
+    }
+
+    precondition {
+      condition     = length(var.api_token_audiences) > 0 && length(var.invoker_members) > 0
+      error_message = "Set api_token_audiences and invoker_members before enabling deploy_application."
     }
   }
 

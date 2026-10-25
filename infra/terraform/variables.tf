@@ -97,3 +97,14 @@ variable "deletion_protection" {
   type        = bool
   default     = true
 }
+
+variable "api_token_audiences" {
+  description = "Audiences accepted for signed Google ID tokens: the service URL or an explicit OAuth client ID."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for audience in var.api_token_audiences : trimspace(audience) != "" && !strcontains(audience, ",")])
+    error_message = "Token audiences must be nonempty values without commas."
+  }
+}

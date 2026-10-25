@@ -9,8 +9,10 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.1",
+    "cachecontrol>=0.14.0",
     "fastapi>=0.161.1",
     "google-cloud-secret-manager>=2.31.0",
+    "google-auth[requests]>=2.0",
     "google-crc32c>=1.9.0",
     "openai>=3.36.1",
     "psycopg[binary]>=3.3.6",
@@ -32,6 +34,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "cryptography>=44.0",
     "anyio>=4.0",
     "httpx>=0.28.1",
     "pytest>=9.1.1",

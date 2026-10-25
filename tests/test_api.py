@@ -15,6 +15,7 @@ api_app = importlib.import_module("invoice_automation_platform.api.app")
 from invoice_automation_platform.api import create_app, get_client, get_db, get_model
 from invoice_automation_platform.extraction import extract_pdf_text_from_bytes
 from invoice_automation_platform.invoices.schemas import Invoice, InvoiceLine
+from invoice_automation_platform.api.auth import Principal
 
 
 def make_pdf(text: str = "") -> bytes:
@@ -48,9 +49,9 @@ def client(test_engine, monkeypatch) -> TestClient:
     app = create_app()
     app.dependency_overrides[get_client] = lambda: object()
     app.dependency_overrides[get_model] = lambda: "test-model"
+    app.dependency_overrides[api_app.current_principal] = lambda: Principal("alice-subject", "alice@example.com")
     with TestClient(
         app,
-        headers={"X-Goog-Authenticated-User-Email": "accounts.google.com%3Aalice@example.com"},
     ) as test_client:
         async def open_test_session():
             engine = create_async_engine(os.environ["TEST_DATABASE_URL"])
