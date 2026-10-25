@@ -67,6 +67,11 @@ resource "google_cloud_run_v2_service" "api" {
         value = google_storage_bucket.invoices.name
       }
 
+      env {
+        name  = "API_ADMIN_SUBJECTS"
+        value = join(",", var.admin_members)
+      }
+
       startup_probe {
         http_get {
           path = "/health"

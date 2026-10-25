@@ -81,6 +81,17 @@ variable "invoker_members" {
   }
 }
 
+variable "admin_members" {
+  description = "Authenticated subjects or emails allowed to access all invoices."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition     = !contains(var.admin_members, "allUsers") && !contains(var.admin_members, "allAuthenticatedUsers")
+    error_message = "Grant administrative access only to specific identities."
+  }
+}
+
 variable "deletion_protection" {
   description = "Protect the database, API and migration job from accidental deletion."
   type        = bool

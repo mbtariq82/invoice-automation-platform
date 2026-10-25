@@ -8,3 +8,4 @@ deploy_application           = false
 container_image              = ""
 openrouter_model             = ""
 invoker_members              = []
+admin_members                = []

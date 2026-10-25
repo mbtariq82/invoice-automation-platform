@@ -159,7 +159,9 @@ in the environment templates under `infra/terraform/environments`; real
 The database uses a public IP with no authorized networks. Cloud Run connects
 through the authenticated, encrypted Cloud SQL integration and its `/cloudsql`
 socket; direct database connections are not opened to the internet. The
-application remains IAM-authenticated. The PDF bucket enforces public access
+application remains IAM-authenticated. The API also records the authenticated
+Cloud Run subject as the invoice owner; set `admin_members` for identities that
+need to view all invoices. The PDF bucket enforces public access
 prevention and uniform bucket-level IAM access.
 
 Terraform passes `DATABASE_URL_SECRET_VERSION` and

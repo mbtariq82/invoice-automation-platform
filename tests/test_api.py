@@ -45,7 +45,10 @@ def client(db_session) -> TestClient:
     app.dependency_overrides[get_client] = lambda: object()
     app.dependency_overrides[get_model] = lambda: "test-model"
     app.dependency_overrides[get_db] = lambda: db_session
-    with TestClient(app) as test_client:
+    with TestClient(
+        app,
+        headers={"X-Goog-Authenticated-User-Email": "accounts.google.com%3Aalice@example.com"},
+    ) as test_client:
         yield test_client
 
 
