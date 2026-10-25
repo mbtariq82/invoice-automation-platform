@@ -1,3 +1,5 @@
+import pytest
+
 from datetime import date
 from decimal import Decimal
 
@@ -20,8 +22,9 @@ def sample_invoice() -> Invoice:
     )
 
 
-def test_create_and_fetch_by_hash(db_session) -> None:
-    record = repository.create_invoice_record(
+@pytest.mark.anyio
+async def test_create_and_fetch_by_hash(db_session) -> None:
+    record = await repository.create_invoice_record(
         db_session,
         content_hash="a" * 64,
         source_filename="invoice.pdf",
@@ -31,48 +34,51 @@ def test_create_and_fetch_by_hash(db_session) -> None:
     assert record.id is not None
     assert record.created_at is not None
 
-    found = repository.get_by_content_hash(db_session, "a" * 64)
+    found = await repository.get_by_content_hash(db_session, "a" * 64)
     assert found is not None
     assert found.id == record.id
 
-    missing = repository.get_by_content_hash(db_session, "b" * 64)
+    missing = await repository.get_by_content_hash(db_session, "b" * 64)
     assert missing is None
 
 
-def test_get_by_id(db_session) -> None:
-    record = repository.create_invoice_record(
+@pytest.mark.anyio
+async def test_get_by_id(db_session) -> None:
+    record = await repository.create_invoice_record(
         db_session,
         content_hash="c" * 64,
         source_filename=None,
         invoice=sample_invoice(),
     )
 
-    assert repository.get_by_id(db_session, record.id).id == record.id
-    assert repository.get_by_id(db_session, record.id + 1_000_000) is None
+    assert (await repository.get_by_id(db_session, record.id)).id == record.id
+    assert await repository.get_by_id(db_session, record.id + 1_000_000) is None
 
 
-def test_list_invoices_orders_newest_first(db_session) -> None:
-    first = repository.create_invoice_record(
+@pytest.mark.anyio
+async def test_list_invoices_orders_newest_first(db_session) -> None:
+    first = await repository.create_invoice_record(
         db_session,
         content_hash="d" * 64,
         source_filename=None,
         invoice=sample_invoice(),
     )
-    second = repository.create_invoice_record(
+    second = await repository.create_invoice_record(
         db_session,
         content_hash="e" * 64,
         source_filename=None,
         invoice=sample_invoice(),
     )
 
-    records = repository.list_invoices(db_session, limit=10, offset=0)
+    records = await repository.list_invoices(db_session, limit=10, offset=0)
     ids = [record.id for record in records]
 
     assert ids.index(second.id) < ids.index(first.id)
 
 
-def test_to_invoice_round_trips_line_amounts(db_session) -> None:
-    record = repository.create_invoice_record(
+@pytest.mark.anyio
+async def test_to_invoice_round_trips_line_amounts(db_session) -> None:
+    record = await repository.create_invoice_record(
         db_session,
         content_hash="f" * 64,
         source_filename=None,

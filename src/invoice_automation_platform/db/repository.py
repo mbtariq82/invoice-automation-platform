@@ -2,7 +2,7 @@ import hashlib
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import InvoiceRecord
 from ..invoices.schemas import Invoice, InvoiceLine
@@ -12,22 +12,22 @@ def hash_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def get_by_content_hash(session: Session, content_hash: str, *, created_by: str | None = None) -> InvoiceRecord | None:
+async def get_by_content_hash(session: AsyncSession, content_hash: str, *, created_by: str | None = None) -> InvoiceRecord | None:
     statement = select(InvoiceRecord).where(InvoiceRecord.content_hash == content_hash)
     if created_by is not None:
         statement = statement.where(InvoiceRecord.created_by == created_by)
-    return session.scalar(statement)
+    return await session.scalar(statement)
 
 
-def get_by_id(session: Session, record_id: int, *, created_by: str | None = None) -> InvoiceRecord | None:
+async def get_by_id(session: AsyncSession, record_id: int, *, created_by: str | None = None) -> InvoiceRecord | None:
     statement = select(InvoiceRecord).where(InvoiceRecord.id == record_id)
     if created_by is not None:
         statement = statement.where(InvoiceRecord.created_by == created_by)
-    return session.scalar(statement)
+    return await session.scalar(statement)
 
 
-def list_invoices(
-    session: Session, *, limit: int = 20, offset: int = 0, created_by: str | None = None
+async def list_invoices(
+    session: AsyncSession, *, limit: int = 20, offset: int = 0, created_by: str | None = None
 ) -> list[InvoiceRecord]:
     statement = select(InvoiceRecord)
     if created_by is not None:
@@ -37,11 +37,11 @@ def list_invoices(
         .limit(limit)
         .offset(offset)
     )
-    return list(session.scalars(statement))
+    return list(await session.scalars(statement))
 
 
-def create_invoice_record(
-    session: Session,
+async def create_invoice_record(
+    session: AsyncSession,
     *,
     content_hash: str,
     source_filename: str | None,
@@ -67,8 +67,8 @@ def create_invoice_record(
         ],
     )
     session.add(record)
-    session.commit()
-    session.refresh(record)
+    await session.commit()
+    await session.refresh(record)
     return record
 
 

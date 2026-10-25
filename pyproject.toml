@@ -18,13 +18,13 @@ dependencies = [
     "pymupdf>=2.0",
     "python-dotenv>=1.2.4",
     "python-multipart>=0.0.32",
-    "sqlalchemy>=2.1.6",
+    "sqlalchemy[asyncio]>=2.1.6",
     "uvicorn[standard]>=0.54.0",
 ]
 
 [project.scripts]
 invoice-automation-platform = "invoice_automation_platform.evaluation.runner:main"
-invoice-api = "invoice_automation_platform.api:run"
+invoice-api = "invoice_automation_platform.api.app:run"
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]
@@ -32,6 +32,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "anyio>=4.0",
     "httpx>=0.28.1",
     "pytest>=9.1.1",
 ]
