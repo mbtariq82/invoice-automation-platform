@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pymupdf
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 
 from .normalization import normalize_invoice_payload
 from ..invoices.schemas import Invoice
@@ -67,6 +67,15 @@ def create_client(timeout: float = 90.0) -> OpenAI:
     )
 
 
+def create_async_client(timeout: float = 90.0) -> AsyncOpenAI:
+    return AsyncOpenAI(
+        api_key=get_secret("OPENROUTER_API_KEY"),
+        base_url="https://openrouter.ai/api/v1",
+        timeout=timeout,
+        max_retries=0,
+    )
+
+
 def parse_invoice(content: str) -> Invoice:
     try:
         payload: Any = json.loads(content)
@@ -98,4 +107,24 @@ def extract_invoice(client: OpenAI, model: str, text: str) -> Invoice:
     if not content:
         raise ValueError("The model returned an empty response")
 
+    return parse_invoice(content)
+
+
+async def extract_invoice_async(client: AsyncOpenAI, model: str, text: str) -> Invoice:
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": f"Extract the invoice fields from this document:\n\n{text}",
+            },
+        ],
+        response_format={"type": "json_object"},
+        temperature=0,
+    )
+
+    content = response.choices[0].message.content
+    if not content:
+        raise ValueError("The model returned an empty response")
     return parse_invoice(content)

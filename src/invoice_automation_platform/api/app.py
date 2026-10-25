@@ -13,8 +13,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.concurrency import run_in_threadpool
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import ConfigDict
 from sqlalchemy.orm import Session
 
@@ -22,10 +21,14 @@ from ..db import repository
 from ..db.session import get_db
 from ..extraction import (
     configured_model,
-    create_client,
-    extract_invoice,
+    create_async_client,
+    extract_invoice_async,
     extract_pdf_text_from_bytes,
 )
+
+# Kept as a module-level seam so API tests and integrations can replace the
+# model call without touching the extraction package.
+extract_invoice = extract_invoice_async
 from ..db.models import InvoiceRecord
 from ..invoices.schemas import Invoice
 from ..config.secrets import SecretConfigurationError
@@ -72,9 +75,9 @@ class ExtractInvoiceResponse(InvoiceRecordResponse):
 
 
 @lru_cache(maxsize=1)
-def get_client() -> OpenAI:
+def get_client() -> AsyncOpenAI:
     try:
-        return create_client()
+        return create_async_client()
     except SecretConfigurationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -106,7 +109,7 @@ def health() -> dict[str, str]:
 @router.post("/v1/invoices/extract", response_model=ExtractInvoiceResponse)
 async def extract_invoice_from_pdf(
     file: Annotated[UploadFile, File(description="PDF invoice to extract")],
-    client: Annotated[OpenAI, Depends(get_client)],
+    client: Annotated[AsyncOpenAI, Depends(get_client)],
     model: Annotated[str, Depends(get_model)],
     db: Annotated[Session, Depends(get_db)],
 ) -> ExtractInvoiceResponse:
@@ -155,7 +158,7 @@ async def extract_invoice_from_pdf(
         )
 
     try:
-        invoice = await run_in_threadpool(extract_invoice, client, model, text)
+        invoice = await extract_invoice(client, model, text)
     except Exception as exc:
         logger.exception("Invoice extraction failed")
         raise HTTPException(
