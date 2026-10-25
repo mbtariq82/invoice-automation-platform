@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from invoice_automation_platform import api
 import importlib
 import os
+from unittest.mock import AsyncMock
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 api_app = importlib.import_module("invoice_automation_platform.api.app")
@@ -42,7 +43,8 @@ def sample_invoice() -> Invoice:
 
 
 @pytest.fixture
-def client(test_engine) -> TestClient:
+def client(test_engine, monkeypatch) -> TestClient:
+    monkeypatch.setattr(api_app, "initialize_database", AsyncMock())
     app = create_app()
     app.dependency_overrides[get_client] = lambda: object()
     app.dependency_overrides[get_model] = lambda: "test-model"

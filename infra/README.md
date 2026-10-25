@@ -169,9 +169,14 @@ Terraform passes `DATABASE_URL_SECRET_VERSION` and
 application reads their values directly through the Secret Manager client,
 using its runtime identity, verifies payload checksums and caches successful
 reads in memory. The migration job receives only the database reference.
-Secrets are loaded on first use, so `/health` checks startup rather than secret
-access or database connectivity; successful migrations and an invoice request
-verify those dependencies. Local `.env` credentials remain available when no
+Startup loads the database secret and executes `SELECT 1` before accepting
+requests. Secret reads have a 10-second timeout, database connections use a
+10-second connection timeout, and the startup connection/query phase is limited
+to 15 seconds. Database failures prevent startup. OpenRouter credentials remain
+lazy, so the startup check does not verify model access or application tables.
+Cloud Run keeps one instance warm, which incurs idle-instance charges and reduces
+delays after inactivity; instance replacements can still require startup.
+Local `.env` credentials remain available when no
 secret-version references are configured.
 
 ## 3. Build and push an application image

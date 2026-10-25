@@ -21,7 +21,7 @@ from pydantic import ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import repository
-from ..db.session import close_database, get_db
+from ..db.session import close_database, get_db, initialize_database
 from ..extraction import (
     configured_model,
     create_async_client,
@@ -216,6 +216,7 @@ async def get_invoice_endpoint(
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     try:
+        await initialize_database()
         yield
     finally:
         try:
