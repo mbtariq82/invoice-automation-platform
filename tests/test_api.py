@@ -11,7 +11,7 @@ import importlib
 api_app = importlib.import_module("invoice_automation_platform.api.app")
 from invoice_automation_platform.api import create_app, get_client, get_db, get_model
 from invoice_automation_platform.extraction import extract_pdf_text_from_bytes
-from invoice_automation_platform.schemas import Invoice, InvoiceLine
+from invoice_automation_platform.invoices.schemas import Invoice, InvoiceLine
 
 
 def make_pdf(text: str = "") -> bytes:

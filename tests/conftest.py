@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from invoice_automation_platform.models import Base
+from invoice_automation_platform.db.models import Base
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 

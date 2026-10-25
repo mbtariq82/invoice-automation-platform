@@ -1,10 +1,10 @@
 from decimal import Decimal
 from pathlib import Path
 
-from invoice_automation_platform import runner
+from invoice_automation_platform.evaluation import runner
 from invoice_automation_platform.evaluation import runner as evaluation_runner
-from invoice_automation_platform.runner import select_documents
-from invoice_automation_platform.schemas import Invoice
+from invoice_automation_platform.evaluation.runner import select_documents
+from invoice_automation_platform.invoices.schemas import Invoice
 
 DOCUMENTS = [
     {"doc_id": "clean-a", "category": "clean", "render": "pdf", "file": "a.pdf"},
