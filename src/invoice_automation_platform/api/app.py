@@ -18,18 +18,18 @@ from openai import OpenAI
 from pydantic import ConfigDict
 from sqlalchemy.orm import Session
 
-from . import repository
-from .db import get_db
-from .extraction import (
+from ..db import repository
+from ..db.session import get_db
+from ..extraction import (
     configured_model,
     create_client,
     extract_invoice,
     extract_pdf_text_from_bytes,
 )
-from .models import InvoiceRecord
-from .schemas import Invoice
-from .secrets import SecretConfigurationError
-from .validation import TotalsCheck, check_invoice_totals
+from ..db.models import InvoiceRecord
+from ..invoices.schemas import Invoice
+from ..config.secrets import SecretConfigurationError
+from ..invoices.validation import TotalsCheck, check_invoice_totals
 
 logger = logging.getLogger(__name__)
 

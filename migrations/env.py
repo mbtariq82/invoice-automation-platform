@@ -6,7 +6,7 @@ from sqlalchemy import pool
 from alembic import context
 
 from invoice_automation_platform.db import database_url
-from invoice_automation_platform.models import Base
+from invoice_automation_platform.db.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

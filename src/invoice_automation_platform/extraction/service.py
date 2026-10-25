@@ -7,8 +7,8 @@ import pymupdf
 from openai import OpenAI
 
 from .normalization import normalize_invoice_payload
-from .schemas import Invoice
-from .secrets import get_secret
+from ..invoices.schemas import Invoice
+from ..config.secrets import get_secret
 
 SYSTEM_PROMPT = """
 You extract structured data from supplier invoices.

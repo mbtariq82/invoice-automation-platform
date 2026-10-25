@@ -6,6 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from invoice_automation_platform import api
+import importlib
+
+api_app = importlib.import_module("invoice_automation_platform.api.app")
 from invoice_automation_platform.api import create_app, get_client, get_db, get_model
 from invoice_automation_platform.extraction import extract_pdf_text_from_bytes
 from invoice_automation_platform.schemas import Invoice, InvoiceLine
@@ -57,7 +60,7 @@ def test_extract_pdf_returns_invoice(client: TestClient, monkeypatch) -> None:
     def fake_extract_invoice(openai_client, model, text):
         return sample_invoice()
 
-    monkeypatch.setattr(api, "extract_invoice", fake_extract_invoice)
+    monkeypatch.setattr(api_app, "extract_invoice", fake_extract_invoice)
 
     response = client.post(
         "/v1/invoices/extract",
@@ -83,7 +86,7 @@ def test_extract_is_idempotent_for_the_same_pdf(client: TestClient, monkeypatch)
         calls.append(text)
         return sample_invoice()
 
-    monkeypatch.setattr(api, "extract_invoice", fake_extract_invoice)
+    monkeypatch.setattr(api_app, "extract_invoice", fake_extract_invoice)
     pdf_bytes = make_pdf("Acme invoice")
 
     first = client.post(
@@ -102,7 +105,7 @@ def test_extract_is_idempotent_for_the_same_pdf(client: TestClient, monkeypatch)
 
 
 def test_list_and_get_invoice(client: TestClient, monkeypatch) -> None:
-    monkeypatch.setattr(api, "extract_invoice", lambda c, m, t: sample_invoice())
+    monkeypatch.setattr(api_app, "extract_invoice", lambda c, m, t: sample_invoice())
 
     created = client.post(
         "/v1/invoices/extract",
@@ -139,7 +142,7 @@ def test_totals_check_is_consistent_across_api_responses(
         calls.append(text)
         return invoice
 
-    monkeypatch.setattr(api, "extract_invoice", fake_extract_invoice)
+    monkeypatch.setattr(api_app, "extract_invoice", fake_extract_invoice)
     pdf_bytes = make_pdf("Acme invoice")
     files = {"file": ("invoice.pdf", pdf_bytes, "application/pdf")}
 
@@ -212,7 +215,7 @@ def test_extract_returns_bad_gateway_on_model_failure(
     def failing_extract_invoice(openai_client, model, text):
         raise ValueError("upstream failure")
 
-    monkeypatch.setattr(api, "extract_invoice", failing_extract_invoice)
+    monkeypatch.setattr(api_app, "extract_invoice", failing_extract_invoice)
 
     response = client.post(
         "/v1/invoices/extract",
