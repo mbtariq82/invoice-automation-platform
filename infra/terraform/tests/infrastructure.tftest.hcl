@@ -33,7 +33,11 @@ override_module {
 }
 
 variables {
-  project_id = "invoice-test-project"
+  project_id         = "invoice-test-project"
+  deploy_application = false
+  container_image    = ""
+  openrouter_model   = ""
+  invoker_members    = []
 }
 
 run "foundation_without_an_application_image" {
