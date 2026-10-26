@@ -181,7 +181,9 @@ secret-version references are configured.
 
 ## 3. Build and push an application image
 
-Build the image locally; no CI/CD pipeline or Cloud Build setup is required:
+For automated releases, follow [CI/CD setup](../docs/ci-cd.md). The commands below
+also support a manual release. Terraform initializes image fields on creation;
+subsequent image updates belong to the release pipeline or explicit gcloud commands.
 
 ```powershell
 $imageRepository = terraform -chdir=infra/terraform output -raw image_repository
@@ -216,7 +218,11 @@ terraform -chdir=infra/terraform plan -var-file=environments/dev.tfvars
 terraform -chdir=infra/terraform apply -var-file=environments/dev.tfvars
 
 $migrationJob = terraform -chdir=infra/terraform output -raw migration_job_name
+gcloud run jobs update $migrationJob --image=$env:TF_VAR_container_image --project=$projectId --region=$region
 gcloud run jobs execute $migrationJob --project=$projectId --region=$region --wait
+# Replace invoice-dev-api if using another name_prefix.
+gcloud run services update invoice-dev-api --image=$env:TF_VAR_container_image --project=$projectId --region=$region
+gcloud run services update-traffic invoice-dev-api --to-latest --project=$projectId --region=$region
 ```
 
 The job runs `alembic upgrade head` with the same image and database connection

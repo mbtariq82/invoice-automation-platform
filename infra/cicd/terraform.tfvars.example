@@ -1,0 +1,6 @@
+project_id           = "your-gcp-project-id"
+region               = "europe-west2"
+name_prefix          = "invoice-dev"
+github_repository    = "mbtariq82/invoice-automation-platform"
+github_repository_id = "1430185697"
+github_owner_id      = "119065609"

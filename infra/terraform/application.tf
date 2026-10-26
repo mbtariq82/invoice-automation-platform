@@ -100,6 +100,9 @@ resource "google_cloud_run_v2_service" "api" {
   }
 
   lifecycle {
+    # CI/CD owns releases; infrastructure applies must not redeploy an old image.
+    ignore_changes = [template[0].containers[0].image]
+
     precondition {
       condition     = var.container_image != "" && trimspace(var.openrouter_model) != ""
       error_message = "Set container_image and openrouter_model before enabling deploy_application."
@@ -137,6 +140,10 @@ resource "google_cloud_run_v2_job" "migrate" {
   location            = var.region
   deletion_protection = var.deletion_protection
   labels              = local.labels
+
+  lifecycle {
+    ignore_changes = [template[0].template[0].containers[0].image]
+  }
 
   template {
     task_count  = 1

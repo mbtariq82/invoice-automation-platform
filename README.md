@@ -203,6 +203,9 @@ python -m pytest
 
 ## GCP infrastructure
 
+[CI/CD setup and release flow](docs/ci-cd.md) describes the GitHub Actions pipeline,
+keyless GCP authentication, migration checks, candidate rollout and rollback.
+
 [Terraform setup and deployment instructions](infra/README.md) define a
 development environment with Cloud Run, Cloud SQL for PostgreSQL, Secret
 Manager, Artifact Registry, and a private Cloud Storage bucket for PDF invoices.
