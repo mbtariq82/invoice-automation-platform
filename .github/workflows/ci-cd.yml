@@ -49,6 +49,10 @@ jobs:
           terraform_wrapper: false
       - name: Check Terraform and mocked infrastructure tests
         shell: bash
+        env:
+          # The aliased secret-source provider is initialized even though its
+          # module is overridden. This inert value prevents ADC lookup in CI.
+          GOOGLE_OAUTH_ACCESS_TOKEN: offline-test-token
         run: |
           set -euo pipefail
           terraform fmt -check -recursive infra
