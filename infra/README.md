@@ -203,7 +203,8 @@ ignore files exclude credentials, local environments, benchmark documents and
 Terraform state. Deployment uses the image digest so the selected build does
 not change when a tag moves. This is the manual bootstrap path; after CI/CD is
 configured, Google Cloud Build performs the production build described in
-`docs/ci-cd.md`.
+`docs/ci-cd.md`, and Google Cloud Deploy controls migration, progressive traffic
+and rollback.
 
 Keep the deployed image digest, `deploy_application = true`, model identifier,
 and invoker principals in your ignored environment-specific `.auto.tfvars` file

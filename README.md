@@ -204,8 +204,8 @@ python -m pytest
 ## GCP infrastructure
 
 [CI/CD setup and release flow](docs/ci-cd.md) describes GitHub Actions CI, Google
-Cloud Build container builds, keyless GCP authentication, migration checks,
-candidate rollout and rollback.
+Cloud Build container builds, keyless GCP authentication, and Google Cloud
+Deploy migrations, progressive canary verification and rollback.
 
 [Terraform setup and deployment instructions](infra/README.md) define a
 development environment with Cloud Run, Cloud SQL for PostgreSQL, Secret

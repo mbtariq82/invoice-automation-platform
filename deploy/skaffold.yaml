@@ -1,0 +1,25 @@
+apiVersion: skaffold/v4beta7
+kind: Config
+metadata:
+  name: invoice-api
+manifests:
+  rawYaml:
+    - service.yaml
+deploy:
+  cloudrun: {}
+customActions:
+  - name: migrate
+    containers:
+      - name: migrate
+        image: gcr.io/google.com/cloudsdktool/google-cloud-cli@sha256:2a5368c4f3e25f7e202ccbd7b63e4128380d8fd683266f7f015c5d0afcc8f3be
+        command: ["/bin/bash"]
+        args:
+          - -ceu
+          - |
+            gcloud run jobs update "$MIGRATION_JOB" \
+              --image="$RELEASE_IMAGE" \
+              --project="$CLOUD_RUN_PROJECT" \
+              --region="$CLOUD_RUN_LOCATION" --quiet
+            gcloud run jobs execute "$MIGRATION_JOB" \
+              --project="$CLOUD_RUN_PROJECT" \
+              --region="$CLOUD_RUN_LOCATION" --wait --quiet
