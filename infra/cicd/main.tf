@@ -1,5 +1,11 @@
 resource "google_project_service" "federation" {
-  for_each           = toset(["iam.googleapis.com", "iamcredentials.googleapis.com", "sts.googleapis.com"])
+  for_each = toset([
+    "cloudbuild.googleapis.com",
+    "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "logging.googleapis.com",
+    "sts.googleapis.com",
+  ])
   project            = var.project_id
   service            = each.value
   disable_on_destroy = false
@@ -10,6 +16,31 @@ resource "google_service_account" "deployer" {
   account_id   = "${var.name_prefix}-deployer"
   display_name = "GitHub development releases"
   depends_on   = [google_project_service.federation]
+}
+
+resource "google_service_account" "builder" {
+  project      = var.project_id
+  account_id   = "${var.name_prefix}-builder"
+  display_name = "Cloud Build container builds"
+  depends_on   = [google_project_service.federation]
+}
+
+resource "google_storage_bucket" "build_source" {
+  project                     = var.project_id
+  name                        = "${var.project_id}-${var.name_prefix}-build-source"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = false
+
+  lifecycle_rule {
+    condition {
+      age = 7
+    }
+    action {
+      type = "Delete"
+    }
+  }
 }
 
 resource "google_iam_workload_identity_pool" "github" {
@@ -53,7 +84,39 @@ resource "google_artifact_registry_repository_iam_member" "publish" {
   location   = var.region
   repository = "${var.name_prefix}-images"
   role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:${google_service_account.deployer.email}"
+  member     = "serviceAccount:${google_service_account.builder.email}"
+}
+
+resource "google_project_iam_member" "submit_builds" {
+  project = var.project_id
+  role    = "roles/cloudbuild.builds.editor"
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_project_iam_member" "write_build_logs" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.builder.email}"
+}
+
+resource "google_service_account_iam_member" "use_builder" {
+  service_account_id = google_service_account.builder.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_storage_bucket_iam_member" "stage_source" {
+  for_each = toset(["roles/storage.bucketViewer", "roles/storage.objectUser"])
+  bucket   = google_storage_bucket.build_source.name
+  role     = each.value
+  member   = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_storage_bucket_iam_member" "read_source" {
+  for_each = toset(["roles/storage.bucketViewer", "roles/storage.objectViewer"])
+  bucket   = google_storage_bucket.build_source.name
+  role     = each.value
+  member   = "serviceAccount:${google_service_account.builder.email}"
 }
 
 resource "google_service_account_iam_member" "runtime_identity" {

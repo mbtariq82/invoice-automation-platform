@@ -11,7 +11,8 @@ from urllib.request import Request, urlopen
 REQUIRED = (
     "GCP_PROJECT_ID", "GCP_REGION", "GCP_SERVICE", "GCP_MIGRATION_JOB",
     "GCP_IMAGE_REPOSITORY", "GCP_SERVICE_URL", "GCP_WORKLOAD_IDENTITY_PROVIDER",
-    "GCP_DEPLOYER_SERVICE_ACCOUNT",
+    "GCP_DEPLOYER_SERVICE_ACCOUNT", "GCP_BUILD_SERVICE_ACCOUNT",
+    "GCP_BUILD_SOURCE_BUCKET",
 )
 
 
@@ -21,6 +22,11 @@ def validate():
         raise ValueError("Missing deployment variables: " + ", ".join(missing))
     if not os.environ["GCP_SERVICE_URL"].startswith("https://"):
         raise ValueError("GCP_SERVICE_URL must be HTTPS")
+    if not os.environ["GCP_BUILD_SOURCE_BUCKET"].startswith("gs://"):
+        raise ValueError("GCP_BUILD_SOURCE_BUCKET must be a gs:// URL")
+    expected_suffix = "@" + os.environ["GCP_PROJECT_ID"] + ".iam.gserviceaccount.com"
+    if not os.environ["GCP_BUILD_SERVICE_ACCOUNT"].endswith(expected_suffix):
+        raise ValueError("GCP_BUILD_SERVICE_ACCOUNT must belong to the deployment project")
 
 
 def gcloud(*args):

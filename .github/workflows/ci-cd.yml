@@ -88,6 +88,8 @@ jobs:
       GCP_SERVICE_URL: ${{ vars.GCP_SERVICE_URL }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      GCP_BUILD_SERVICE_ACCOUNT: ${{ vars.GCP_BUILD_SERVICE_ACCOUNT }}
+      GCP_BUILD_SOURCE_BUCKET: ${{ vars.GCP_BUILD_SOURCE_BUCKET }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -101,16 +103,20 @@ jobs:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.GCP_DEPLOYER_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
-      - name: Build and push immutable release image
+      - name: Build and push release image with Cloud Build
         id: image
         shell: bash
         run: |
           set -euo pipefail
-          gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
           image="${GCP_IMAGE_REPOSITORY}/api:${GITHUB_SHA}"
-          docker build --platform linux/amd64 --tag "$image" .
-          docker push "$image"
-          digest=$(gcloud artifacts docker images describe "$image" --project="$GCP_PROJECT_ID" --format='value(image_summary.digest)')
+          digest=$(gcloud builds submit . \
+            --config=cloudbuild.yaml \
+            --region="$GCP_REGION" \
+            --service-account="projects/${GCP_PROJECT_ID}/serviceAccounts/${GCP_BUILD_SERVICE_ACCOUNT}" \
+            --gcs-source-staging-dir="${GCP_BUILD_SOURCE_BUCKET}/source" \
+            --substitutions="_IMAGE=${image}" \
+            --format='value(results.images[0].digest)' \
+            --quiet)
           [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
           echo "uri=${GCP_IMAGE_REPOSITORY}/api@${digest}" >> "$GITHUB_OUTPUT"
       - name: Migrate before changing service traffic

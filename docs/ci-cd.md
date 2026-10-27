@@ -1,4 +1,4 @@
-# CI/CD with GitHub Actions and GCP
+# CI/CD with GitHub Actions, Cloud Build and Cloud Run
 
 The workflow in `.github/workflows/ci-cd.yml` tests every PR and push to `main`.
 Deployments run after successful CI on `main`, or a manual run on `main`, once
@@ -13,8 +13,10 @@ the repository variable `GCP_DEPLOY_ENABLED` is set to `true`.
    the production Docker image. These steps need no GCP credentials or model key.
 3. On `main`, authenticate to GCP with GitHub OIDC and Workload Identity
    Federation. There is no downloaded service-account key.
-4. Build and push an image tagged with the commit SHA, then resolve its immutable
-   digest. The digest is the release identifier for both the API and migration job.
+4. Upload the allowlisted application source to a private staging bucket. Google
+   Cloud Build builds the production container and pushes the commit-SHA tag to
+   Artifact Registry. GitHub reads the immutable digest from the completed build;
+   that digest is the release identifier for both the API and migration job.
 5. Update and execute the migration job. A failure stops deployment before
    changing API traffic. Migrations must remain compatible with the old revision.
 6. Mint a short-lived Google ID token for the deployer, targeting the canonical
@@ -28,14 +30,16 @@ the repository variable `GCP_DEPLOY_ENABLED` is set to `true`.
 
 Deployments are serialized and never automatically cancel an active deployment.
 PR jobs have read-only GitHub permissions and no cloud identity. Action versions
-are pinned to commit SHAs. Manual cancellation or a runner outage can interrupt
+are pinned to commit SHAs. Cloud Build runs with a dedicated build identity and
+stores logs in Cloud Logging. Manual cancellation or a runner outage can interrupt
 rollback; inspect Cloud Run before starting another release in that case.
 
 ## One-time setup (operator)
 
 The existing application stack must already exist. `infra/cicd` manages the
-deployment service account, federation provider and resource-scoped IAM grants
-in its own state. It does not manage the application, database or runtime secrets.
+GitHub deployment account, dedicated Cloud Build account, private source-staging
+bucket, federation provider, API enablement and resource-scoped IAM grants in its
+own state. It does not manage the application, database or runtime secrets.
 
 ```powershell
 Copy-Item infra/cicd/terraform.tfvars.example infra/cicd/terraform.tfvars
@@ -51,10 +55,11 @@ The example uses this repository's immutable numeric GitHub IDs. For a fork,
 obtain its repository and owner IDs using `gh api repos/OWNER/REPO`. Federation
 requires those IDs, `refs/heads/main`, the `development` environment, and this
 workflow's exact path. A PR, different workflow, or different branch cannot
-assume the deployer identity. The service account receives repository-level
-Artifact Registry Writer, service/job-level Cloud Run Developer, job invocation,
-and permission to use the existing runtime service account. It receives no
-project-wide administrator, Terraform-state access, or direct Secret Manager role.
+assume the deployer identity. The GitHub account may submit Cloud Builds, stage
+source in the dedicated bucket, update the service/job and use the runtime and
+builder identities. The builder may read staged source, write Cloud Logging logs,
+and push only to the application image repository. Neither account receives
+Terraform-state access, direct Secret Manager access, or an administrator role.
 
 In the ignored application environment file, include the deployer in
 `invoker_members` alongside your existing users. This grants both Cloud Run
@@ -84,6 +89,8 @@ Create a GitHub environment named `development`; restrict deployment branches to
 | `GCP_SERVICE_URL` | Canonical URL from `terraform output -raw service_url` |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `workload_identity_provider` output of `infra/cicd` |
 | `GCP_DEPLOYER_SERVICE_ACCOUNT` | `deployer_service_account` output of `infra/cicd` |
+| `GCP_BUILD_SERVICE_ACCOUNT` | `build_service_account` output of `infra/cicd` |
+| `GCP_BUILD_SOURCE_BUCKET` | `build_source_bucket` output of `infra/cicd` |
 
 Set `GCP_DEPLOY_ENABLED=true` as a **repository variable** last. The workflow's job
 condition needs it before environment-level variables are loaded. These values
@@ -117,5 +124,6 @@ gcloud run services update invoice-dev-api --image=PREVIOUS_IMAGE_DIGEST --proje
 gcloud run services update-traffic invoice-dev-api --to-latest --project=PROJECT --region=europe-west2
 ```
 
-See the [Google federation setup guide](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines)
+See the [Google federation setup guide](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines),
+the [Cloud Build user-managed service account guide](https://docs.cloud.google.com/build/docs/securing-builds/configure-user-specified-service-accounts),
 and [Cloud Run rollout documentation](https://docs.cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration).

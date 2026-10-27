@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 
 import pytest
+import yaml
 
 spec = importlib.util.spec_from_file_location("deploy", Path(__file__).resolve().parents[1] / "scripts" / "deploy.py")
 deploy = importlib.util.module_from_spec(spec)
@@ -84,3 +85,31 @@ def test_wrong_service_url_is_rejected_before_updates(release, monkeypatch):
     with pytest.raises(ValueError, match="does not match"):
         deploy.rollout(IMAGE)
     assert len(release) == 1
+
+
+def test_validate_requires_project_build_identity(monkeypatch):
+    for name in deploy.REQUIRED:
+        monkeypatch.setenv(name, "configured")
+    monkeypatch.setenv("GCP_PROJECT_ID", "invoice-project")
+    monkeypatch.setenv("GCP_SERVICE_URL", "https://api.example.run.app")
+    monkeypatch.setenv("GCP_BUILD_SOURCE_BUCKET", "gs://invoice-build-source")
+    monkeypatch.setenv(
+        "GCP_BUILD_SERVICE_ACCOUNT",
+        "invoice-builder@invoice-project.iam.gserviceaccount.com",
+    )
+
+    deploy.validate()
+
+    monkeypatch.setenv("GCP_BUILD_SERVICE_ACCOUNT", "builder@other-project.iam.gserviceaccount.com")
+    with pytest.raises(ValueError, match="deployment project"):
+        deploy.validate()
+
+
+def test_cloud_build_pushes_the_substituted_image():
+    config_path = Path(__file__).resolve().parents[1] / "cloudbuild.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+
+    assert config["images"] == ["${_IMAGE}"]
+    assert config["options"]["logging"] == "CLOUD_LOGGING_ONLY"
+    assert "@sha256:" in config["steps"][0]["name"]
+    assert config["steps"][0]["args"][-2:] == ["${_IMAGE}", "."]
