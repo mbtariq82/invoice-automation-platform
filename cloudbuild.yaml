@@ -1,0 +1,17 @@
+steps:
+  - name: gcr.io/cloud-builders/docker@sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f
+    args:
+      - build
+      - --platform
+      - linux/amd64
+      - --tag
+      - ${_IMAGE}
+      - .
+
+images:
+  - ${_IMAGE}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1200s

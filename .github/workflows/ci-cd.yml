@@ -1,0 +1,155 @@
+name: CI and development deployment
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: ci-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: invoice_automation_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:test-only-password@localhost:5432/invoice_automation_test
+      DATABASE_URL: postgresql+psycopg://postgres:test-only-password@localhost:5432/invoice_automation_test
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: '0.13.5'
+      - run: uv sync --locked
+      - name: Test application and deployment orchestration
+        run: uv run --locked pytest -q
+      - name: Apply migrations to disposable PostgreSQL
+        run: uv run --locked alembic upgrade head
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: '1.14.0'
+          terraform_wrapper: false
+      - name: Check Terraform and mocked infrastructure tests
+        shell: bash
+        env:
+          # The aliased secret-source provider is initialized even though its
+          # module is overridden. This inert value prevents ADC lookup in CI.
+          GOOGLE_OAUTH_ACCESS_TOKEN: offline-test-token
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive infra
+          for stack in bootstrap terraform cicd; do
+            terraform -chdir="infra/$stack" init -backend=false -input=false
+            terraform -chdir="infra/$stack" validate
+            terraform -chdir="infra/$stack" test
+          done
+      - name: Build production container
+        run: docker build --platform linux/amd64 --tag invoice-api:ci .
+
+  deploy:
+    needs: ci
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      vars.GCP_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: development
+    concurrency:
+      group: development-deployment
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      GCP_SERVICE: ${{ vars.GCP_SERVICE }}
+      GCP_MIGRATION_JOB: ${{ vars.GCP_MIGRATION_JOB }}
+      GCP_IMAGE_REPOSITORY: ${{ vars.GCP_IMAGE_REPOSITORY }}
+      GCP_SERVICE_URL: ${{ vars.GCP_SERVICE_URL }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      GCP_BUILD_SERVICE_ACCOUNT: ${{ vars.GCP_BUILD_SERVICE_ACCOUNT }}
+      GCP_BUILD_SOURCE_BUCKET: ${{ vars.GCP_BUILD_SOURCE_BUCKET }}
+      GCP_DELIVERY_PIPELINE: ${{ vars.GCP_DELIVERY_PIPELINE }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: '0.13.5'
+      - run: uv sync --locked --no-dev
+      - name: Check deployment configuration
+        run: python scripts/deploy.py validate
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+      - name: Build and push release image with Cloud Build
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="${GCP_IMAGE_REPOSITORY}/api:${GITHUB_SHA}"
+          digest=$(gcloud builds submit . \
+            --config=cloudbuild.yaml \
+            --region="$GCP_REGION" \
+            --service-account="projects/${GCP_PROJECT_ID}/serviceAccounts/${GCP_BUILD_SERVICE_ACCOUNT}" \
+            --gcs-source-staging-dir="${GCP_BUILD_SOURCE_BUCKET}/source" \
+            --substitutions="_IMAGE=${image}" \
+            --format='value(results.images[0].digest)' \
+            --quiet)
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "uri=${GCP_IMAGE_REPOSITORY}/api@${digest}" >> "$GITHUB_OUTPUT"
+      - name: Prepare the Cloud Deploy release manifest
+        env:
+          RELEASE_IMAGE: ${{ steps.image.outputs.uri }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir release
+          gcloud run services describe "$GCP_SERVICE" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \
+            --format=export > release/service.yaml
+          uv run --no-sync python scripts/deploy.py prepare release/service.yaml
+          cp deploy/skaffold.yaml release/skaffold.yaml
+      - name: Create and monitor Cloud Deploy release
+        env:
+          RELEASE_IMAGE: ${{ steps.image.outputs.uri }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release="gh-${GITHUB_SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gcloud deploy releases create "$release" \
+            --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \
+            --delivery-pipeline="$GCP_DELIVERY_PIPELINE" \
+            --source=release \
+            --gcs-source-staging-dir="${GCP_BUILD_SOURCE_BUCKET}/deploy-source" \
+            --images="invoice-api=${RELEASE_IMAGE}" \
+            --deploy-parameters="RELEASE_IMAGE=${RELEASE_IMAGE},MIGRATION_JOB=${GCP_MIGRATION_JOB}" \
+            --labels="commit=${GITHUB_SHA}" \
+            --quiet
+          uv run --no-sync python scripts/deploy.py wait "$release"

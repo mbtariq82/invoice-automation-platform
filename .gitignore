@@ -9,6 +9,7 @@ wheels/
 # Virtual environments
 .venv
 .env
+gha-creds-*.json
 
 results
 
