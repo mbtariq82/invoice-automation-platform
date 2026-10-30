@@ -36,7 +36,6 @@ resource "google_api_gateway_api_config" "invoice" {
       path = "openapi.yaml"
       contents = base64encode(templatefile("${path.module}/openapi.yaml.tftpl", {
         api_url         = google_cloud_run_v2_service.api[0].uri
-        gateway_host    = "${var.name_prefix}-api-${var.project_id}.gateway.dev"
         name_prefix     = var.name_prefix
         oauth_client_id = var.frontend_google_client_id
       }))
