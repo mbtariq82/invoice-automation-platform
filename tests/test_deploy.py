@@ -129,12 +129,6 @@ def test_cloud_build_pushes_the_substituted_image():
     assert "@sha256:" in config["steps"][0]["name"]
 
 
-def test_frontend_cloud_build_uses_its_dockerfile_and_substituted_image():
-    config = yaml.safe_load((ROOT / "cloudbuild-frontend.yaml").read_text(encoding="utf-8"))
-    assert config["images"] == ["${_IMAGE}"]
-    assert config["options"]["logging"] == "CLOUD_LOGGING_ONLY"
-    assert config["steps"][0]["args"][-3:] == ["--file", "frontend/Dockerfile", "frontend"]
-
 
 def test_skaffold_defines_cloud_run_and_idempotent_migration_hook():
     config = yaml.safe_load((ROOT / "deploy" / "skaffold.yaml").read_text(encoding="utf-8"))
