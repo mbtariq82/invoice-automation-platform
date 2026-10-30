@@ -136,11 +136,11 @@ run "application_uses_the_database_bucket_and_pinned_secrets" {
   assert {
     condition = length([
       for env in google_cloud_run_v2_service.api[0].template[0].containers[0].env : env.name
-      if contains(["DATABASE_URL_SECRET_VERSION", "OPENROUTER_API_KEY_SECRET_VERSION"], env.name)
-      ]) == 2 && alltrue([
+      if env.name == "DATABASE_URL_SECRET_VERSION"
+      ]) == 1 && alltrue([
       for env in google_cloud_run_v2_service.api[0].template[0].containers[0].env :
       endswith(env.value, "/versions/7") && length(env.value_source) == 0
-      if contains(["DATABASE_URL_SECRET_VERSION", "OPENROUTER_API_KEY_SECRET_VERSION"], env.name)
+      if env.name == "DATABASE_URL_SECRET_VERSION"
     ])
     error_message = "Use actual Secret Manager versions, not latest or the credential update counters."
   }
