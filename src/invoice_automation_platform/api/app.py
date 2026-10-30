@@ -17,7 +17,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from openai import AsyncOpenAI
+from google import genai
 from pydantic import ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +35,6 @@ from ..extraction import (
 extract_invoice = extract_invoice_async
 from ..db.models import InvoiceRecord
 from ..invoices.schemas import Invoice
-from ..config.secrets import SecretConfigurationError
 from ..invoices.validation import TotalsCheck, check_invoice_totals
 from .auth import Principal, get_current_principal, is_admin
 
@@ -87,19 +86,11 @@ class ExtractInvoiceResponse(InvoiceRecordResponse):
 
 
 @lru_cache(maxsize=1)
-def get_client() -> AsyncOpenAI:
+def get_client() -> genai.Client:
     try:
         return create_async_client()
-    except SecretConfigurationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="OpenRouter credentials could not be loaded",
-        ) from exc
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OPENROUTER_API_KEY is not configured",
-        ) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Vertex AI is not configured") from exc
 
 
 @lru_cache(maxsize=1)
@@ -109,7 +100,7 @@ def get_model() -> str:
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OPENROUTER_MODEL is not configured",
+        detail="VERTEX_AI_MODEL is not configured",
         ) from exc
 
 
@@ -129,7 +120,7 @@ def current_principal(
 @router.post("/v1/invoices/extract", response_model=ExtractInvoiceResponse)
 async def extract_invoice_from_pdf(
     file: Annotated[UploadFile, File(description="PDF invoice to extract")],
-    client: Annotated[AsyncOpenAI, Depends(get_client)],
+    client: Annotated[genai.Client, Depends(get_client)],
     model: Annotated[str, Depends(get_model)],
     db: Annotated[AsyncSession, Depends(get_db)],
     principal: Annotated[Principal, Depends(current_principal)],

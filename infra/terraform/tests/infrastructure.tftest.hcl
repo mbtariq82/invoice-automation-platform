@@ -52,12 +52,17 @@ variables {
   project_id         = "invoice-test-project"
   deploy_application = false
   container_image    = ""
-  openrouter_model   = ""
+  vertex_ai_model    = ""
   invoker_members    = []
 }
 
 run "foundation_without_an_application_image" {
   command = plan
+
+  assert {
+    condition     = contains(keys(google_project_service.required), "aiplatform.googleapis.com")
+    error_message = "Vertex AI API must be enabled by Terraform."
+  }
 
   assert {
     condition     = length(google_cloud_run_v2_service.api) == 0 && length(google_cloud_run_v2_job.migrate) == 0
@@ -106,7 +111,7 @@ run "application_uses_the_database_bucket_and_pinned_secrets" {
   variables {
     deploy_application  = true
     container_image     = "europe-west2-docker.pkg.dev/invoice-test-project/invoice-dev-images/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    openrouter_model    = "offline-model"
+    vertex_ai_model     = "gemini-2.5-flash"
     invoker_members     = ["user:developer@example.com"]
     api_token_audiences = ["https://invoice-test.run.app"]
   }
@@ -131,11 +136,11 @@ run "application_uses_the_database_bucket_and_pinned_secrets" {
   assert {
     condition = length([
       for env in google_cloud_run_v2_service.api[0].template[0].containers[0].env : env.name
-      if contains(["DATABASE_URL_SECRET_VERSION", "OPENROUTER_API_KEY_SECRET_VERSION"], env.name)
-      ]) == 2 && alltrue([
+      if env.name == "DATABASE_URL_SECRET_VERSION"
+      ]) == 1 && alltrue([
       for env in google_cloud_run_v2_service.api[0].template[0].containers[0].env :
       endswith(env.value, "/versions/7") && length(env.value_source) == 0
-      if contains(["DATABASE_URL_SECRET_VERSION", "OPENROUTER_API_KEY_SECRET_VERSION"], env.name)
+      if env.name == "DATABASE_URL_SECRET_VERSION"
     ])
     error_message = "Use actual Secret Manager versions, not latest or the credential update counters."
   }
@@ -154,6 +159,11 @@ run "application_uses_the_database_bucket_and_pinned_secrets" {
     condition     = length(google_cloud_run_v2_service_iam_member.invoker) == 1
     error_message = "Grant only the configured caller access to the private API."
   }
+
+  assert {
+    condition     = google_project_iam_member.vertex_ai_user.role == "roles/aiplatform.user"
+    error_message = "The runtime service account must be allowed to call Vertex AI."
+  }
 }
 
 run "frontend_uses_storage_and_api_gateway" {
@@ -162,7 +172,7 @@ run "frontend_uses_storage_and_api_gateway" {
   variables {
     deploy_application        = true
     container_image           = "europe-west2-docker.pkg.dev/invoice-test-project/invoice-dev-images/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    openrouter_model          = "offline-model"
+    vertex_ai_model           = "gemini-2.5-flash"
     invoker_members           = ["user:developer@example.com"]
     frontend_google_client_id = "123456789-example.apps.googleusercontent.com"
     api_token_audiences       = ["123456789-example.apps.googleusercontent.com"]

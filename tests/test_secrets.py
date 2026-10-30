@@ -133,17 +133,13 @@ def test_corrupt_or_empty_payload_is_rejected(monkeypatch, secret_client, respon
     assert "secret-value" not in str(raised.value)
 
 
-def test_database_and_model_client_use_the_secret_resolver(monkeypatch, secret_client):
+def test_database_and_vertex_client_use_adc(monkeypatch, secret_client):
     monkeypatch.setenv("DATABASE_URL_SECRET_VERSION", VERSION)
-    monkeypatch.setenv("OPENROUTER_API_KEY_SECRET_VERSION", VERSION)
-
     assert db.database_url() == "cloud-value"
-    client = extraction.create_client(timeout=12)
-    try:
-        assert client.api_key == "cloud-value"
-    finally:
-        client.close()
-    assert secret_client.access_secret_version.call_count == 1
+    client = object()
+    import invoice_automation_platform.extraction.service as service
+    monkeypatch.setattr(service.genai, "Client", lambda **kwargs: client)
+    assert extraction.create_client(timeout=12) is client
 
 
 def test_health_check_does_not_access_model_secrets(monkeypatch):
@@ -165,15 +161,14 @@ def test_health_check_does_not_access_model_secrets(monkeypatch):
 def test_api_returns_a_safe_error_when_credentials_cannot_be_loaded(
     monkeypatch, secret_client
 ):
-    monkeypatch.setenv("OPENROUTER_API_KEY_SECRET_VERSION", VERSION)
-    secret_client.access_secret_version.side_effect = PermissionDenied(
-        "sensitive provider details"
-    )
+    import importlib
+    api_module = importlib.import_module("invoice_automation_platform.api.app")
+    monkeypatch.setattr(api_module, "create_async_client", lambda: (_ for _ in ()).throw(ValueError("credentials unavailable")))
 
     with pytest.raises(HTTPException) as raised:
-        api.get_client.__wrapped__()
+        api_module.get_client.__wrapped__()
     assert raised.value.status_code == 503
-    assert raised.value.detail == "OpenRouter credentials could not be loaded"
+    assert raised.value.detail == "Vertex AI is not configured"
 
 
 def test_alembic_can_load_its_database_url_from_secret_manager(
