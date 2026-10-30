@@ -97,6 +97,9 @@ these environment variables:
 | `GCP_BUILD_SERVICE_ACCOUNT` | `build_service_account` output of `infra/cicd` |
 | `GCP_BUILD_SOURCE_BUCKET` | `build_source_bucket` output of `infra/cicd` |
 | `GCP_DELIVERY_PIPELINE` | `delivery_pipeline` output of `infra/cicd` |
+| `GCP_FRONTEND_BUCKET` | `frontend_bucket_name` output of `infra/terraform` |
+| `GCP_API_GATEWAY_URL` | `api_gateway_url` output of `infra/terraform` |
+| `GCP_FRONTEND_GOOGLE_CLIENT_ID` | The public Google OAuth web client ID |
 
 Set `GCP_DEPLOY_ENABLED=true` as a **repository variable** last. Identifiers are
 not secrets, so no service-account key or other GitHub secret is needed. Run the

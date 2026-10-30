@@ -24,6 +24,22 @@ override_resource {
   }
 }
 
+override_resource {
+  target          = google_service_account.gateway
+  override_during = plan
+  values = {
+    email = "invoice-dev-frontend@invoice-test-project.iam.gserviceaccount.com"
+  }
+}
+
+override_resource {
+  target          = google_cloud_run_v2_service.api
+  override_during = plan
+  values = {
+    uri = "https://invoice-test.run.app"
+  }
+}
+
 override_module {
   target = module.credential_inputs
   outputs = {
@@ -138,6 +154,29 @@ run "application_uses_the_database_bucket_and_pinned_secrets" {
     condition     = length(google_cloud_run_v2_service_iam_member.invoker) == 1
     error_message = "Grant only the configured caller access to the private API."
   }
+}
+
+run "frontend_uses_storage_and_api_gateway" {
+  command = plan
+
+  variables {
+    deploy_application        = true
+    container_image           = "europe-west2-docker.pkg.dev/invoice-test-project/invoice-dev-images/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    openrouter_model          = "offline-model"
+    invoker_members           = ["user:developer@example.com"]
+    frontend_google_client_id = "123456789-example.apps.googleusercontent.com"
+    api_token_audiences       = ["123456789-example.apps.googleusercontent.com"]
+  }
+
+  assert {
+    condition = (
+      google_storage_bucket.frontend[0].uniform_bucket_level_access &&
+      google_storage_bucket_iam_member.frontend_public[0].member == "allUsers" &&
+      google_cloud_run_v2_service_iam_member.gateway_api_invoker[0].member == "serviceAccount:${google_service_account.gateway.email}"
+    )
+    error_message = "The frontend bucket must be public and API Gateway must use its dedicated identity."
+  }
+
 }
 
 run "reject_missing_image_and_model" {

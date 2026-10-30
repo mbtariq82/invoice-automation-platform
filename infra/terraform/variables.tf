@@ -70,6 +70,17 @@ variable "container_image" {
   }
 }
 
+variable "frontend_google_client_id" {
+  description = "Google OAuth web client ID used by the React sign-in flow; this is a public identifier, not a secret."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.frontend_google_client_id == "" || can(regex("^[0-9]+-[a-z0-9-]+\\.apps\\.googleusercontent\\.com$", var.frontend_google_client_id))
+    error_message = "Use a Google OAuth web client ID ending in .apps.googleusercontent.com."
+  }
+}
+
 variable "invoker_members" {
   description = "IAM principals allowed to call the private API, such as user:you@example.com."
   type        = set(string)

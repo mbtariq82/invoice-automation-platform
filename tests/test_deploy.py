@@ -129,6 +129,7 @@ def test_cloud_build_pushes_the_substituted_image():
     assert "@sha256:" in config["steps"][0]["name"]
 
 
+
 def test_skaffold_defines_cloud_run_and_idempotent_migration_hook():
     config = yaml.safe_load((ROOT / "deploy" / "skaffold.yaml").read_text(encoding="utf-8"))
     assert config["manifests"]["rawYaml"] == ["service.yaml"]

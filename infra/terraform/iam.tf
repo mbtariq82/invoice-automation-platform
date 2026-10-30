@@ -6,6 +6,14 @@ resource "google_service_account" "runtime" {
   depends_on = [google_project_service.required]
 }
 
+resource "google_service_account" "gateway" {
+  project      = var.project_id
+  account_id   = "${var.name_prefix}-gateway"
+  display_name = "Invoice API Gateway"
+
+  depends_on = [google_project_service.required]
+}
+
 resource "google_project_iam_member" "cloud_sql_client" {
   project = var.project_id
   role    = "roles/cloudsql.client"

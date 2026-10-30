@@ -2,7 +2,7 @@ resource "google_artifact_registry_repository" "api" {
   project       = var.project_id
   location      = var.region
   repository_id = "${var.name_prefix}-images"
-  description   = "Container images for the invoice API and migrations."
+  description   = "Container images for the invoice API, migrations and frontend."
   format        = "DOCKER"
   labels        = local.labels
 
