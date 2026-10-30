@@ -75,11 +75,8 @@ terraform -chdir=infra/terraform output -raw api_gateway_url
 ```
 
 After the first apply, add the returned HTTPS URL to the OAuth client's
-Authorized JavaScript origins. Terraform creates:
-
-- a dedicated `${name_prefix}-frontend` service account;
-- a public Cloud Run frontend service;
-- a narrowly scoped `roles/run.invoker` grant from that account to the API;
-- runtime configuration containing the private API URL and public client ID.
+Authorized JavaScript origins. Terraform creates the public bucket, API Gateway,
+and the gateway service account with a narrowly scoped `roles/run.invoker`
+grant. CI/CD owns the static files and generates `config.js` during deployment.
 
 No OAuth client secret is placed in Terraform, the container image or GitHub.
