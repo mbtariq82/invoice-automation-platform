@@ -45,8 +45,6 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24.11.0'
-          cache: bun
-          cache-dependency-path: frontend/bun.lock
       - name: Test and build React frontend
         working-directory: frontend
         run: |
