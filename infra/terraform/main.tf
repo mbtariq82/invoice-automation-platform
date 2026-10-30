@@ -14,6 +14,7 @@ locals {
     "serviceusage.googleapis.com",
     "sqladmin.googleapis.com",
     "storage.googleapis.com",
+    "aiplatform.googleapis.com",
   ])
 }
 

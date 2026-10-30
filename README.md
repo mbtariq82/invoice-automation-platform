@@ -14,8 +14,8 @@ uv sync
 Create a `.env` file with:
 
 ```text
-OPENROUTER_API_KEY=...
-OPENROUTER_MODEL=...
+VERTEX_AI_MODEL=gemini-2.5-flash
+GOOGLE_CLOUD_LOCATION=global
 DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/invoice_automation
 TEST_DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/invoice_automation_test
 ```
@@ -38,8 +38,8 @@ credentials:
 
 ```text
 DATABASE_URL_SECRET_VERSION=projects/your-project/secrets/invoice-dev-database-url/versions/1
-OPENROUTER_API_KEY_SECRET_VERSION=projects/your-project/secrets/invoice-dev-openrouter-api-key/versions/1
-OPENROUTER_MODEL=your-openrouter-model-id
+VERTEX_AI_MODEL=gemini-2.5-flash
+GOOGLE_CLOUD_LOCATION=global
 ```
 
 Terraform configures these references for the Cloud Run API and supplies only
@@ -85,7 +85,7 @@ The API uses SQLAlchemy's async engine and sessions with psycopg. The custom
 loop factory selects a Windows-compatible event loop for local development;
 `uv run invoice-api` uses it automatically. Alembic continues using psycopg's
 synchronous engine with the same database URL. API shutdown releases pooled
-database connections and closes the async OpenRouter client.
+database connections and closes the Vertex AI client.
 
 Or use the installed entry point:
 

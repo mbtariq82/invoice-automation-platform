@@ -60,6 +60,11 @@ run "foundation_without_an_application_image" {
   command = plan
 
   assert {
+    condition     = contains(keys(google_project_service.required), "aiplatform.googleapis.com")
+    error_message = "Vertex AI API must be enabled by Terraform."
+  }
+
+  assert {
     condition     = length(google_cloud_run_v2_service.api) == 0 && length(google_cloud_run_v2_job.migrate) == 0
     error_message = "Foundation provisioning must work before an application image exists."
   }
@@ -153,6 +158,11 @@ run "application_uses_the_database_bucket_and_pinned_secrets" {
   assert {
     condition     = length(google_cloud_run_v2_service_iam_member.invoker) == 1
     error_message = "Grant only the configured caller access to the private API."
+  }
+
+  assert {
+    condition     = google_project_iam_member.vertex_ai_user.role == "roles/aiplatform.user"
+    error_message = "The runtime service account must be allowed to call Vertex AI."
   }
 }
 
