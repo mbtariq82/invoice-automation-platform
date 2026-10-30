@@ -47,8 +47,8 @@ variable "openrouter_key_version" {
   }
 }
 
-variable "openrouter_model" {
-  description = "OpenRouter model identifier; required when deploying the application."
+variable "vertex_ai_model" {
+  description = "Vertex AI Gemini model identifier; required when deploying the application."
   type        = string
   default     = ""
 }

@@ -52,7 +52,7 @@ variables {
   project_id         = "invoice-test-project"
   deploy_application = false
   container_image    = ""
-  openrouter_model   = ""
+  vertex_ai_model    = ""
   invoker_members    = []
 }
 
@@ -106,7 +106,7 @@ run "application_uses_the_database_bucket_and_pinned_secrets" {
   variables {
     deploy_application  = true
     container_image     = "europe-west2-docker.pkg.dev/invoice-test-project/invoice-dev-images/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    openrouter_model    = "offline-model"
+    vertex_ai_model     = "gemini-2.5-flash"
     invoker_members     = ["user:developer@example.com"]
     api_token_audiences = ["https://invoice-test.run.app"]
   }
@@ -162,7 +162,7 @@ run "frontend_uses_storage_and_api_gateway" {
   variables {
     deploy_application        = true
     container_image           = "europe-west2-docker.pkg.dev/invoice-test-project/invoice-dev-images/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    openrouter_model          = "offline-model"
+    vertex_ai_model           = "gemini-2.5-flash"
     invoker_members           = ["user:developer@example.com"]
     frontend_google_client_id = "123456789-example.apps.googleusercontent.com"
     api_token_audiences       = ["123456789-example.apps.googleusercontent.com"]

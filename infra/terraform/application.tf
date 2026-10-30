@@ -58,13 +58,13 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
-        name  = "OPENROUTER_API_KEY_SECRET_VERSION"
-        value = "${google_secret_manager_secret.openrouter_api_key.id}/versions/${google_secret_manager_secret_version.openrouter_api_key.version}"
+        name  = "VERTEX_AI_MODEL"
+        value = var.vertex_ai_model
       }
 
       env {
-        name  = "OPENROUTER_MODEL"
-        value = var.openrouter_model
+        name  = "GOOGLE_CLOUD_LOCATION"
+        value = "global"
       }
 
       env {
@@ -104,8 +104,8 @@ resource "google_cloud_run_v2_service" "api" {
     ignore_changes = [template[0].containers[0].image]
 
     precondition {
-      condition     = var.container_image != "" && trimspace(var.openrouter_model) != ""
-      error_message = "Set container_image and openrouter_model before enabling deploy_application."
+      condition     = var.container_image != "" && trimspace(var.vertex_ai_model) != ""
+      error_message = "Set container_image and vertex_ai_model before enabling deploy_application."
     }
 
     precondition {
@@ -117,7 +117,6 @@ resource "google_cloud_run_v2_service" "api" {
   depends_on = [
     google_project_iam_member.cloud_sql_client,
     google_secret_manager_secret_iam_member.database_access,
-    google_secret_manager_secret_iam_member.model_access,
     google_storage_bucket_iam_member.invoice_access,
   ]
 }

@@ -6,7 +6,7 @@ deploy_application = false
 
 # After pushing an image, set its immutable digest and enable the application.
 # container_image    = "europe-west2-docker.pkg.dev/your-gcp-project-id/invoice-dev-images/api@sha256:<64-character-digest>"
-# openrouter_model   = "your-openrouter-model-id"
+# vertex_ai_model   = "gemini-2.5-flash"
 # deploy_application = true
 # frontend_google_client_id = "your-client-id.apps.googleusercontent.com"
 # invoker_members    = ["user:you@example.com"]
