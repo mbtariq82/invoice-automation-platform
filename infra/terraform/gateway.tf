@@ -67,7 +67,6 @@ resource "google_api_gateway_gateway" "invoice" {
   provider   = google-beta
   project    = var.project_id
   region     = var.region
-  api        = google_api_gateway_api.invoice[0].api_id
   gateway_id = "${var.name_prefix}-gateway"
   labels     = local.labels
   api_config = google_api_gateway_api_config.invoice[0].id
