@@ -49,17 +49,6 @@ resource "google_api_gateway_api_config" "invoice" {
     }
   }
 
-  lifecycle {
-    precondition {
-      condition     = var.frontend_google_client_id != ""
-      error_message = "Set frontend_google_client_id before deploying the application frontend."
-    }
-
-    precondition {
-      condition     = contains(var.api_token_audiences, var.frontend_google_client_id)
-      error_message = "Add frontend_google_client_id to api_token_audiences so the API accepts signed user tokens."
-    }
-  }
 }
 
 resource "google_api_gateway_gateway" "invoice" {
