@@ -2,6 +2,9 @@
 __pycache__/
 *.py[oc]
 node_modules/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 build/
 dist/
 wheels/
