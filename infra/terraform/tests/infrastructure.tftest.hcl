@@ -177,10 +177,6 @@ run "frontend_uses_storage_and_api_gateway" {
     error_message = "The frontend bucket must be public and API Gateway must use its dedicated identity."
   }
 
-  assert {
-    condition     = google_storage_bucket_object.frontend_config[0].content_type == "application/javascript"
-    error_message = "The static frontend must receive runtime API and OAuth configuration."
-  }
 }
 
 run "reject_missing_image_and_model" {

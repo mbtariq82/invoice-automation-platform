@@ -80,15 +80,3 @@ resource "google_cloud_run_v2_service_iam_member" "gateway_api_invoker" {
   member   = "serviceAccount:${google_service_account.gateway.email}"
 }
 
-resource "google_storage_bucket_object" "frontend_config" {
-  count        = var.deploy_application ? 1 : 0
-  name         = "config.js"
-  bucket       = google_storage_bucket.frontend[0].name
-  content_type = "application/javascript"
-  content      = <<-EOF
-    window.__APP_CONFIG__ = {
-      googleClientId: ${jsonencode(var.frontend_google_client_id)},
-      apiBaseUrl: ${jsonencode("https://${google_api_gateway_gateway.invoice[0].default_hostname}")}
-    };
-  EOF
-}
