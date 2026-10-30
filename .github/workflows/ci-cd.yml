@@ -39,20 +39,20 @@ jobs:
         with:
           version: '0.13.5'
       - run: uv sync --locked
-      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: oven-sh/setup-bun@7353f8c2f5d7a8b3d8c9d0fdb4f4f7b7c0e0f7b3 # v2
         with:
-          version: '11.25.0'
+          bun-version: '1.3.14'
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24.11.0'
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache: bun
+          cache-dependency-path: frontend/bun.lock
       - name: Test and build React frontend
         working-directory: frontend
         run: |
-          pnpm install --frozen-lockfile
-          pnpm test
-          pnpm build
+          bun install --frozen-lockfile
+          bun test
+          bun run build
       - name: Test application and deployment orchestration
         run: uv run --locked pytest -q
       - name: Apply migrations to disposable PostgreSQL
