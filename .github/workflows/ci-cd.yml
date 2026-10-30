@@ -51,7 +51,7 @@ jobs:
         working-directory: frontend
         run: |
           bun install --frozen-lockfile
-          bun test
+          bun run test
           bun run build
       - name: Test application and deployment orchestration
         run: uv run --locked pytest -q

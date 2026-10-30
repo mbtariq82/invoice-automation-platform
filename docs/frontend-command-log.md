@@ -11,15 +11,14 @@ git pull --ff-only origin main
 git switch -c codex/react-frontend
 node --version
 gh api repos/actions/setup-node/git/ref/tags/v6 --jq .object.sha
-gh api repos/pnpm/action-setup/git/ref/tags/v4 --jq .object.sha
+gh api repos/oven-sh/setup-bun/git/ref/tags/v2 --jq .object.sha
 
-$pnpm = "C:\Users\mbtar\.cache\codex-runtimes\codex-primary-runtime\dependencies\bin\fallback\pnpm.cmd"
-& $pnpm --dir frontend install --frozen-lockfile
-& $pnpm --dir frontend test
-& $pnpm --dir frontend build
-& $pnpm install
-& $pnpm test
-& $pnpm build
+& bun install --cwd frontend --frozen-lockfile
+& bun run test --cwd frontend
+& bun run --cwd frontend build
+& bun install --cwd frontend --frozen-lockfile
+& bun run test --cwd frontend
+& bun run --cwd frontend build
 
 & "$env:TEMP\invoice-terraform-tools-1.14.0\terraform.exe" fmt -recursive infra
 $env:GOOGLE_OAUTH_ACCESS_TOKEN = "offline-test-token"
@@ -29,7 +28,7 @@ $env:TF_DATA_DIR = "$env:TEMP\invoice-tf-frontend"
 & "$env:TEMP\invoice-terraform-tools-1.14.0\terraform.exe" -chdir=infra/terraform test
 
 node --check frontend/server.mjs
-& $pnpm --dir frontend audit --prod
+& bun audit --cwd frontend --production
 docker build --platform linux/amd64 --tag invoice-frontend:ci --file frontend/Dockerfile frontend
 docker run --detach --publish 18080:8080 --env API_BASE_URL=https://example.run.app --env GOOGLE_CLIENT_ID=123-example.apps.googleusercontent.com invoice-frontend:ci
 docker logs <container-id>
@@ -39,8 +38,8 @@ docker run --detach --name invoice-frontend-preview --publish 18080:8080 --env A
 docker rm --force invoice-frontend-preview
 
 uv run --locked pytest -q
-& $pnpm --dir frontend test
-& $pnpm --dir frontend build
+& bun run test --cwd frontend
+& bun run --cwd frontend build
 & "$env:TEMP\invoice-actionlint-1.7.12\actionlint.exe" .github/workflows/ci-cd.yml
 git diff --check
 git status --short --branch

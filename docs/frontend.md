@@ -35,10 +35,10 @@ The API additionally restricts callers through `invoker_members`.
 Run these from PowerShell at the repository root:
 
 ```powershell
-$pnpm = "C:\Users\mbtar\.cache\codex-runtimes\codex-primary-runtime\dependencies\bin\fallback\pnpm.cmd"
-& $pnpm --dir frontend install --frozen-lockfile
-& $pnpm --dir frontend test
-& $pnpm --dir frontend build
+$bun = "bun"
+& $bun install --cwd frontend --frozen-lockfile
+& $bun run test --cwd frontend
+& $bun run --cwd frontend build
 docker build --platform linux/amd64 --tag invoice-frontend:local --file frontend/Dockerfile frontend
 ```
 
@@ -49,7 +49,7 @@ Cloud Run because it must mint an API identity token:
 gcloud auth application-default login
 $env:API_BASE_URL = terraform -chdir=infra/terraform output -raw service_url
 $env:GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID.apps.googleusercontent.com"
-& $pnpm --dir frontend start
+& $bun run --cwd frontend start
 ```
 
 Open `http://localhost:8080`. Add that origin to the OAuth client while doing

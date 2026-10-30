@@ -1,5 +1,6 @@
 FROM node:24.11.0-bookworm-slim@sha256:76d0ed0ed93bed4f4376211e9d8fddac4d8b3fbdb54cc45955696001a3c91152 AS build
 WORKDIR /app
+RUN npm install --global bun@1.3.14
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 COPY index.html styles.css tsconfig*.json vite.config.ts ./
@@ -10,6 +11,7 @@ RUN bun run build
 FROM node:24.11.0-bookworm-slim@sha256:76d0ed0ed93bed4f4376211e9d8fddac4d8b3fbdb54cc45955696001a3c91152
 ENV NODE_ENV=production PORT=8080
 WORKDIR /app
+RUN npm install --global bun@1.3.14
 COPY package.json bun.lock server.mjs ./
 RUN bun install --production --frozen-lockfile
 COPY --from=build /app/dist ./dist
