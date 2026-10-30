@@ -19,7 +19,7 @@ resource "google_storage_bucket_iam_member" "frontend_public" {
 
 resource "google_api_gateway_api" "invoice" {
   count    = var.deploy_application ? 1 : 0
-  provider = google
+  provider = google-beta
   project  = var.project_id
   api_id   = "${var.name_prefix}-api"
   labels   = local.labels
@@ -27,6 +27,7 @@ resource "google_api_gateway_api" "invoice" {
 
 resource "google_api_gateway_api_config" "invoice" {
   count         = var.deploy_application ? 1 : 0
+  provider      = google-beta
   project       = var.project_id
   api           = google_api_gateway_api.invoice[0].api_id
   api_config_id = "${var.name_prefix}-api-config-${substr(md5(google_cloud_run_v2_service.api[0].uri), 0, 8)}"
@@ -63,6 +64,7 @@ resource "google_api_gateway_api_config" "invoice" {
 
 resource "google_api_gateway_gateway" "invoice" {
   count      = var.deploy_application ? 1 : 0
+  provider   = google-beta
   project    = var.project_id
   region     = var.region
   api        = google_api_gateway_api.invoice[0].api_id
