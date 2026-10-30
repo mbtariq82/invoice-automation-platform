@@ -179,7 +179,7 @@ run "frontend_uses_storage_and_api_gateway" {
   }
 
   assert {
-    condition = google_storage_bucket_object.frontend_config[0].content_type == "application/javascript"
+    condition     = google_storage_bucket_object.frontend_config[0].content_type == "application/javascript"
     error_message = "The static frontend must receive runtime API and OAuth configuration."
   }
 }
