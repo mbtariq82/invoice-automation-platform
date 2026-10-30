@@ -164,7 +164,6 @@ run "frontend_uses_storage_and_api_gateway" {
     container_image           = "europe-west2-docker.pkg.dev/invoice-test-project/invoice-dev-images/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     openrouter_model          = "offline-model"
     invoker_members           = ["user:developer@example.com"]
-    deploy_frontend           = true
     frontend_google_client_id = "123456789-example.apps.googleusercontent.com"
     api_token_audiences       = ["123456789-example.apps.googleusercontent.com"]
   }

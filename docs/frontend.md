@@ -49,14 +49,13 @@ local development.
 
 ## Build and deploy to GCP
 
-First apply the foundation with `deploy_frontend = false`. Then enable the
-static site and API Gateway:
+The frontend infrastructure is created whenever `deploy_application = true`.
+Set the OAuth client ID and accepted token audience before applying:
 
 ```powershell
 $projectId = "YOUR_PROJECT_ID"
 $region = "europe-west2"
 $env:TF_VAR_frontend_google_client_id = "YOUR_CLIENT_ID.apps.googleusercontent.com"
-$env:TF_VAR_deploy_frontend = "true"
 terraform -chdir=infra/terraform apply -var-file=environments/dev.tfvars
 
 $bucket = terraform -chdir=infra/terraform output -raw frontend_bucket_name

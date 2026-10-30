@@ -1,5 +1,5 @@
 resource "google_storage_bucket" "frontend" {
-  count                       = var.deploy_frontend ? 1 : 0
+  count                       = var.deploy_application ? 1 : 0
   project                     = var.project_id
   name                        = "${var.project_id}-${var.name_prefix}-frontend"
   location                    = var.region
@@ -11,14 +11,14 @@ resource "google_storage_bucket" "frontend" {
 }
 
 resource "google_storage_bucket_iam_member" "frontend_public" {
-  count  = var.deploy_frontend ? 1 : 0
+  count  = var.deploy_application ? 1 : 0
   bucket = google_storage_bucket.frontend[0].name
   role   = "roles/storage.objectViewer"
   member = "allUsers"
 }
 
 resource "google_api_gateway_api" "invoice" {
-  count    = var.deploy_frontend ? 1 : 0
+  count    = var.deploy_application ? 1 : 0
   provider = google
   project  = var.project_id
   api_id   = "${var.name_prefix}-api"
@@ -26,7 +26,7 @@ resource "google_api_gateway_api" "invoice" {
 }
 
 resource "google_api_gateway_api_config" "invoice" {
-  count         = var.deploy_frontend ? 1 : 0
+  count         = var.deploy_application ? 1 : 0
   project       = var.project_id
   api           = google_api_gateway_api.invoice[0].api_id
   api_config_id = "${var.name_prefix}-api-config-${substr(md5(google_cloud_run_v2_service.api[0].uri), 0, 8)}"
@@ -47,10 +47,22 @@ resource "google_api_gateway_api_config" "invoice" {
       google_service_account = google_service_account.gateway.email
     }
   }
+
+  lifecycle {
+    precondition {
+      condition     = var.frontend_google_client_id != ""
+      error_message = "Set frontend_google_client_id before deploying the application frontend."
+    }
+
+    precondition {
+      condition     = contains(var.api_token_audiences, var.frontend_google_client_id)
+      error_message = "Add frontend_google_client_id to api_token_audiences so the API accepts signed user tokens."
+    }
+  }
 }
 
 resource "google_api_gateway_gateway" "invoice" {
-  count      = var.deploy_frontend ? 1 : 0
+  count      = var.deploy_application ? 1 : 0
   project    = var.project_id
   region     = var.region
   api        = google_api_gateway_api.invoice[0].api_id
@@ -60,7 +72,7 @@ resource "google_api_gateway_gateway" "invoice" {
 }
 
 resource "google_cloud_run_v2_service_iam_member" "gateway_api_invoker" {
-  count    = var.deploy_frontend ? 1 : 0
+  count    = var.deploy_application ? 1 : 0
   project  = var.project_id
   location = var.region
   name     = google_cloud_run_v2_service.api[0].name
@@ -69,7 +81,7 @@ resource "google_cloud_run_v2_service_iam_member" "gateway_api_invoker" {
 }
 
 resource "google_storage_bucket_object" "frontend_config" {
-  count        = var.deploy_frontend ? 1 : 0
+  count        = var.deploy_application ? 1 : 0
   name         = "config.js"
   bucket       = google_storage_bucket.frontend[0].name
   content_type = "application/javascript"

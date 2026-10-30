@@ -70,12 +70,6 @@ variable "container_image" {
   }
 }
 
-variable "deploy_frontend" {
-  description = "Create the public frontend after the private API and frontend image are ready."
-  type        = bool
-  default     = false
-}
-
 variable "frontend_google_client_id" {
   description = "Google OAuth web client ID used by the React sign-in flow; this is a public identifier, not a secret."
   type        = string

@@ -6,7 +6,6 @@ database_credentials_version = 1
 openrouter_key_version       = 1
 deploy_application           = false
 container_image              = ""
-deploy_frontend              = false
 frontend_google_client_id    = ""
 openrouter_model             = ""
 invoker_members              = []
