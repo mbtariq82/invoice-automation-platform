@@ -203,6 +203,10 @@ python -m pytest
 
 ## GCP infrastructure
 
+The [React frontend](docs/frontend.md) provides Google sign-in, PDF upload,
+invoice history and detail review. It runs on Cloud Run with a dedicated proxy
+identity so the FastAPI service remains private.
+
 [CI/CD setup and release flow](docs/ci-cd.md) describes GitHub Actions CI, Google
 Cloud Build container builds, keyless GCP authentication, and Google Cloud
 Deploy migrations, progressive canary verification and rollback.

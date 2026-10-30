@@ -212,6 +212,10 @@ so future plans retain the deployed service configuration.
 
 ## 4. Deploy, migrate and verify
 
+The optional React service is documented in [the frontend deployment guide](../docs/frontend.md).
+It is public only so browsers can load the sign-in screen; its dedicated service
+account is the sole additional Cloud Run invoker of the private API.
+
 ```powershell
 $env:TF_VAR_openrouter_model = Read-Host "OpenRouter model identifier"
 $invokerEmail = Read-Host "Google account email allowed to call the API"

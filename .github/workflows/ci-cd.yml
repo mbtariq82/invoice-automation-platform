@@ -39,6 +39,20 @@ jobs:
         with:
           version: '0.13.5'
       - run: uv sync --locked
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: '11.25.0'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.11.0'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Test and build React frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm test
+          pnpm build
       - name: Test application and deployment orchestration
         run: uv run --locked pytest -q
       - name: Apply migrations to disposable PostgreSQL
@@ -63,6 +77,8 @@ jobs:
           done
       - name: Build production container
         run: docker build --platform linux/amd64 --tag invoice-api:ci .
+      - name: Build frontend production container
+        run: docker build --platform linux/amd64 --tag invoice-frontend:ci --file frontend/Dockerfile frontend
 
   deploy:
     needs: ci

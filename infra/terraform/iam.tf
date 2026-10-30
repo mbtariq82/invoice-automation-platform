@@ -6,6 +6,14 @@ resource "google_service_account" "runtime" {
   depends_on = [google_project_service.required]
 }
 
+resource "google_service_account" "frontend" {
+  project      = var.project_id
+  account_id   = "${var.name_prefix}-frontend"
+  display_name = "Invoice frontend proxy"
+
+  depends_on = [google_project_service.required]
+}
+
 resource "google_project_iam_member" "cloud_sql_client" {
   project = var.project_id
   role    = "roles/cloudsql.client"

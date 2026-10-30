@@ -27,3 +27,13 @@ output "migration_job_name" {
   description = "Execute this job before using invoice endpoints."
   value       = try(google_cloud_run_v2_job.migrate[0].name, null)
 }
+
+output "frontend_service_account_email" {
+  description = "Identity used by the frontend to invoke the private API."
+  value       = google_service_account.frontend.email
+}
+
+output "frontend_url" {
+  description = "Public React frontend URL; null until deploy_frontend is enabled."
+  value       = try(google_cloud_run_v2_service.frontend[0].uri, null)
+}

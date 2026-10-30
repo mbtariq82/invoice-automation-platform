@@ -132,6 +132,107 @@ resource "google_cloud_run_v2_service_iam_member" "invoker" {
   member   = each.value
 }
 
+resource "google_cloud_run_v2_service" "frontend" {
+  count = var.deploy_frontend ? 1 : 0
+
+  project             = var.project_id
+  name                = "${var.name_prefix}-frontend"
+  location            = var.region
+  deletion_protection = var.deletion_protection
+  ingress             = "INGRESS_TRAFFIC_ALL"
+  labels              = local.labels
+
+  traffic {
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+  }
+
+  scaling {
+    min_instance_count = 0
+    max_instance_count = 2
+  }
+
+  template {
+    service_account                  = google_service_account.frontend.email
+    execution_environment            = "EXECUTION_ENVIRONMENT_GEN2"
+    max_instance_request_concurrency = 80
+    timeout                          = "60s"
+
+    containers {
+      image = var.frontend_container_image
+
+      ports {
+        container_port = 8080
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+        cpu_idle          = true
+        startup_cpu_boost = true
+      }
+
+      env {
+        name  = "API_BASE_URL"
+        value = google_cloud_run_v2_service.api[0].uri
+      }
+
+      env {
+        name  = "GOOGLE_CLIENT_ID"
+        value = var.frontend_google_client_id
+      }
+
+      startup_probe {
+        http_get {
+          path = "/health"
+          port = 8080
+        }
+        period_seconds    = 5
+        timeout_seconds   = 2
+        failure_threshold = 12
+      }
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image]
+
+    precondition {
+      condition     = var.deploy_application && var.frontend_container_image != "" && var.frontend_google_client_id != ""
+      error_message = "Deploy the API and set frontend_container_image and frontend_google_client_id before enabling deploy_frontend."
+    }
+
+    precondition {
+      condition     = contains(var.api_token_audiences, var.frontend_google_client_id)
+      error_message = "Add frontend_google_client_id to api_token_audiences so the API accepts signed user tokens."
+    }
+  }
+
+  depends_on = [google_cloud_run_v2_service_iam_member.frontend_api_invoker]
+}
+
+resource "google_cloud_run_v2_service_iam_member" "frontend_api_invoker" {
+  count = var.deploy_frontend ? 1 : 0
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.api[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.frontend.email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "public_frontend" {
+  count = var.deploy_frontend ? 1 : 0
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.frontend[0].name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
 resource "google_cloud_run_v2_job" "migrate" {
   count = var.deploy_application ? 1 : 0
 

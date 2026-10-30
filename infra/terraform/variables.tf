@@ -70,6 +70,34 @@ variable "container_image" {
   }
 }
 
+variable "deploy_frontend" {
+  description = "Create the public frontend after the private API and frontend image are ready."
+  type        = bool
+  default     = false
+}
+
+variable "frontend_container_image" {
+  description = "Immutable Artifact Registry image URL for the React frontend."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.frontend_container_image == "" || can(regex("@sha256:[a-f0-9]{64}$", var.frontend_container_image))
+    error_message = "Use a frontend image digest instead of a mutable image tag."
+  }
+}
+
+variable "frontend_google_client_id" {
+  description = "Google OAuth web client ID used by the React sign-in flow; this is a public identifier, not a secret."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.frontend_google_client_id == "" || can(regex("^[0-9]+-[a-z0-9-]+\\.apps\\.googleusercontent\\.com$", var.frontend_google_client_id))
+    error_message = "Use a Google OAuth web client ID ending in .apps.googleusercontent.com."
+  }
+}
+
 variable "invoker_members" {
   description = "IAM principals allowed to call the private API, such as user:you@example.com."
   type        = set(string)
