@@ -25,7 +25,7 @@ override_resource {
 }
 
 override_resource {
-  target          = google_service_account.frontend
+  target          = google_service_account.gateway
   override_during = plan
   values = {
     email = "invoice-dev-frontend@invoice-test-project.iam.gserviceaccount.com"
@@ -60,7 +60,7 @@ run "foundation_without_an_application_image" {
   command = plan
 
   assert {
-    condition     = length(google_cloud_run_v2_service.api) == 0 && length(google_cloud_run_v2_service.frontend) == 0 && length(google_cloud_run_v2_job.migrate) == 0
+    condition     = length(google_cloud_run_v2_service.api) == 0 && length(google_cloud_run_v2_job.migrate) == 0
     error_message = "Foundation provisioning must work before an application image exists."
   }
 
@@ -156,7 +156,7 @@ run "application_uses_the_database_bucket_and_pinned_secrets" {
   }
 }
 
-run "frontend_proxies_users_to_the_private_api" {
+run "frontend_uses_storage_and_api_gateway" {
   command = plan
 
   variables {
@@ -165,28 +165,22 @@ run "frontend_proxies_users_to_the_private_api" {
     openrouter_model          = "offline-model"
     invoker_members           = ["user:developer@example.com"]
     deploy_frontend           = true
-    frontend_container_image  = "europe-west2-docker.pkg.dev/invoice-test-project/invoice-dev-images/frontend@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     frontend_google_client_id = "123456789-example.apps.googleusercontent.com"
     api_token_audiences       = ["123456789-example.apps.googleusercontent.com"]
   }
 
   assert {
     condition = (
-      google_cloud_run_v2_service.frontend[0].template[0].service_account == google_service_account.frontend.email &&
-      google_cloud_run_v2_service.frontend[0].scaling[0].min_instance_count == 0 &&
-      google_cloud_run_v2_service.frontend[0].scaling[0].max_instance_count == 2 &&
-      google_cloud_run_v2_service_iam_member.frontend_api_invoker[0].member == "serviceAccount:${google_service_account.frontend.email}" &&
-      google_cloud_run_v2_service_iam_member.public_frontend[0].member == "allUsers"
+      google_storage_bucket.frontend[0].uniform_bucket_level_access &&
+      google_storage_bucket_iam_member.frontend_public[0].member == "allUsers" &&
+      google_cloud_run_v2_service_iam_member.gateway_api_invoker[0].member == "serviceAccount:${google_service_account.gateway.email}"
     )
-    error_message = "The public frontend must use its dedicated identity to invoke the private API."
+    error_message = "The frontend bucket must be public and API Gateway must use its dedicated identity."
   }
 
   assert {
-    condition = (
-      one([for env in google_cloud_run_v2_service.frontend[0].template[0].containers[0].env : env.value if env.name == "API_BASE_URL"]) == google_cloud_run_v2_service.api[0].uri &&
-      one([for env in google_cloud_run_v2_service.frontend[0].template[0].containers[0].env : env.value if env.name == "GOOGLE_CLIENT_ID"]) == var.frontend_google_client_id
-    )
-    error_message = "The frontend must receive its private API URL and public OAuth client ID."
+    condition = google_storage_bucket_object.frontend_config[0].content_type == "application/javascript"
+    error_message = "The static frontend must receive runtime API and OAuth configuration."
   }
 }
 
@@ -208,16 +202,6 @@ run "reject_mutable_image_tags" {
   }
 
   expect_failures = [var.container_image]
-}
-
-run "reject_mutable_frontend_image_tags" {
-  command = plan
-
-  variables {
-    frontend_container_image = "europe-west2-docker.pkg.dev/invoice-test-project/invoice-dev-images/frontend:latest"
-  }
-
-  expect_failures = [var.frontend_container_image]
 }
 
 run "reject_public_api_access" {

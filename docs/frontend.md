@@ -1,23 +1,15 @@
 # React frontend
 
-The frontend is a React and TypeScript single-page application served by a
-small Node.js process on Cloud Run. It supports Google sign-in, PDF upload,
-invoice history, totals status and invoice detail review.
+The frontend is a React and TypeScript single-page application hosted in a
+public Cloud Storage bucket. API requests go through API Gateway to the private
+FastAPI Cloud Run service.
 
 ## Authentication path
 
-The frontend Cloud Run service is public so a browser can load the sign-in
-page. The API remains private. Browser API requests go to the same frontend
-origin under `/api`; the Node proxy then sends two credentials upstream:
-
-- `Authorization` contains a short-lived identity token for the dedicated
-  frontend service account. Cloud Run IAM uses it to authorize the proxy.
-- `X-API-Authorization` contains the signed Google ID token from the browser.
-  FastAPI verifies it and uses its subject to enforce invoice ownership.
-
-The proxy never converts an unsigned header into an identity and does not store
-the user's token. The browser keeps the token in session storage, which is
-cleared when that tab or browser session ends.
+API Gateway validates the browser's signed Google ID token, uses its dedicated
+service account to invoke the private API, and routes requests to Cloud Run.
+The browser keeps the token in session storage, which is cleared when that tab
+or browser session ends.
 
 ## Create the Google OAuth client
 
@@ -57,27 +49,19 @@ local development.
 
 ## Build and deploy to GCP
 
-First apply the foundation with `deploy_frontend = false`. Build the frontend
-using Cloud Build and capture its immutable digest:
+First apply the foundation with `deploy_frontend = false`. Then enable the
+static site and API Gateway:
 
 ```powershell
 $projectId = "YOUR_PROJECT_ID"
 $region = "europe-west2"
-$imageRepository = terraform -chdir=infra/terraform output -raw image_repository
-$imageTag = "$imageRepository/frontend:$(git rev-parse --short HEAD)"
-
-gcloud builds submit . `
-  --project=$projectId `
-  --region=$region `
-  --config=cloudbuild-frontend.yaml `
-  --substitutions="_IMAGE=$imageTag"
-
-$digest = gcloud artifacts docker images describe $imageTag `
-  --project=$projectId `
-  --format="value(image_summary.digest)"
-$env:TF_VAR_frontend_container_image = "$imageRepository/frontend@$digest"
 $env:TF_VAR_frontend_google_client_id = "YOUR_CLIENT_ID.apps.googleusercontent.com"
 $env:TF_VAR_deploy_frontend = "true"
+terraform -chdir=infra/terraform apply -var-file=environments/dev.tfvars
+
+$bucket = terraform -chdir=infra/terraform output -raw frontend_bucket_name
+& bun run --cwd frontend build
+gcloud storage rsync frontend/dist "gs://$bucket" --recursive --delete-unmatched-destination-objects
 ```
 
 Add that same OAuth client ID to `api_token_audiences` and keep each permitted
@@ -88,6 +72,7 @@ and apply:
 terraform -chdir=infra/terraform plan -var-file=environments/dev.tfvars
 terraform -chdir=infra/terraform apply -var-file=environments/dev.tfvars
 terraform -chdir=infra/terraform output -raw frontend_url
+terraform -chdir=infra/terraform output -raw api_gateway_url
 ```
 
 After the first apply, add the returned HTTPS URL to the OAuth client's

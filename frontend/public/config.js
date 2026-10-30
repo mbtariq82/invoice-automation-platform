@@ -1,1 +1,1 @@
-window.__APP_CONFIG__ = {googleClientId: ""};
+window.__APP_CONFIG__ = {googleClientId: "", apiBaseUrl: ""};

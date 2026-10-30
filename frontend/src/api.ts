@@ -23,7 +23,8 @@ export type InvoiceRecord = {
 async function request<T>(path: string, token: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(`/api${path}`, {...init, headers});
+  const baseUrl = window.__APP_CONFIG__?.apiBaseUrl ?? "";
+  const response = await fetch(`${baseUrl}/v1${path}`, {...init, headers});
   if (!response.ok) {
     let message = `Request failed (${response.status})`;
     try {
@@ -37,10 +38,10 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
   return response.json() as Promise<T>;
 }
 
-export const listInvoices = (token: string) => request<InvoiceRecord[]>("/v1/invoices", token);
+export const listInvoices = (token: string) => request<InvoiceRecord[]>("/invoices", token);
 
 export function extractInvoice(file: File, token: string) {
   const form = new FormData();
   form.append("file", file);
-  return request<InvoiceRecord>("/v1/invoices/extract", token, {method: "POST", body: form});
+  return request<InvoiceRecord>("/invoices/extract", token, {method: "POST", body: form});
 }

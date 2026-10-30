@@ -77,9 +77,6 @@ jobs:
           done
       - name: Build production container
         run: docker build --platform linux/amd64 --tag invoice-api:ci .
-      - name: Build frontend production container
-        run: docker build --platform linux/amd64 --tag invoice-frontend:ci --file frontend/Dockerfile frontend
-
   deploy:
     needs: ci
     if: >-

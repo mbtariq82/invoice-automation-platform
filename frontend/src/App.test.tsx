@@ -35,5 +35,5 @@ test("shows the signed-in user's invoices", async () => {
 
   expect(await screen.findAllByText("Northstar Supplies")).toHaveLength(2);
   expect(screen.getByText("Totals verified")).toBeInTheDocument();
-  expect(fetch).toHaveBeenCalledWith("/api/v1/invoices", expect.objectContaining({headers: expect.any(Headers)}));
+  expect(fetch).toHaveBeenCalledWith("/v1/invoices", expect.objectContaining({headers: expect.any(Headers)}));
 });

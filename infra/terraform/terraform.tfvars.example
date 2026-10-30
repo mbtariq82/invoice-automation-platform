@@ -9,7 +9,6 @@ deploy_frontend    = false
 # container_image    = "europe-west2-docker.pkg.dev/your-gcp-project-id/invoice-dev-images/api@sha256:<64-character-digest>"
 # openrouter_model   = "your-openrouter-model-id"
 # deploy_application = true
-# frontend_container_image  = "europe-west2-docker.pkg.dev/your-gcp-project-id/invoice-dev-images/frontend@sha256:<64-character-digest>"
 # frontend_google_client_id = "your-client-id.apps.googleusercontent.com"
 # deploy_frontend           = true
 # invoker_members    = ["user:you@example.com"]

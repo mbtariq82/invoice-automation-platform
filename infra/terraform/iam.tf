@@ -6,10 +6,10 @@ resource "google_service_account" "runtime" {
   depends_on = [google_project_service.required]
 }
 
-resource "google_service_account" "frontend" {
+resource "google_service_account" "gateway" {
   project      = var.project_id
-  account_id   = "${var.name_prefix}-frontend"
-  display_name = "Invoice frontend proxy"
+  account_id   = "${var.name_prefix}-gateway"
+  display_name = "Invoice API Gateway"
 
   depends_on = [google_project_service.required]
 }

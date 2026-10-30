@@ -5,7 +5,7 @@ import App from "./App";
 import "../styles.css";
 
 declare global {
-  interface Window { __APP_CONFIG__?: {googleClientId?: string}; }
+  interface Window { __APP_CONFIG__?: {googleClientId?: string; apiBaseUrl?: string}; }
 }
 
 const clientId = window.__APP_CONFIG__?.googleClientId ?? import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";

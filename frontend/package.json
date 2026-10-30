@@ -6,13 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "start": "node server.mjs",
     "test": "vitest run"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.4",
-    "express": "^5.1.0",
-    "google-auth-library": "^10.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
